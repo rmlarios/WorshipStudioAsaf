@@ -48,6 +48,7 @@ export interface ServiceDate {
   acompaniantesIds: string[]; // Multiple Cantores to support (Rosado)
   songs: Song[];
   songsStatus?: SongsStatus; 
+  playlistUrl?: string;
 }
 
 export interface Availability {

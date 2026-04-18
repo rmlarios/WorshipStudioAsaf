@@ -360,6 +360,38 @@ export default function DateDetails() {
                    </button>
                 )}
              </div>
+
+             {/* General Playlist Link */}
+             <div className="mb-6 bg-neutral-950 p-4 rounded-xl border border-neutral-800 flex flex-col sm:flex-row items-center gap-3">
+                <div className="flex-1 w-full">
+                  <label className="block text-xs text-neutral-500 mb-1 font-medium">Enlace de Playlist (YouTube, Spotify, etc.)</label>
+                  {canEditSongs ? (
+                     <div className="flex gap-2 w-full">
+                       <input 
+                         value={dateInfo.playlistUrl || ''} 
+                         onChange={(e) => setDateInfo({...dateInfo, playlistUrl: e.target.value})}
+                         onKeyDown={(e) => { if(e.key === 'Enter') store.updateServiceDate(dateInfo) }}
+                         onBlur={() => store.updateServiceDate(dateInfo)}
+                         type="url" 
+                         className="w-full bg-neutral-900 border border-neutral-700 rounded-md p-2 text-sm text-white focus:outline-none focus:border-pink-500" 
+                         placeholder="https://youtube.com/playlist?list=..." 
+                       />
+                       <button onClick={() => store.updateServiceDate(dateInfo)} className="bg-neutral-800 hover:bg-neutral-700 text-white px-3 rounded-md text-xs font-bold transition-colors border border-neutral-700"><Save className="w-4 h-4" /></button>
+                     </div>
+                  ) : (
+                     <div className="bg-neutral-900 border border-neutral-800 rounded-md p-2 text-sm text-neutral-400 italic">
+                        {dateInfo.playlistUrl || 'No se ha configurado un enlace general'}
+                     </div>
+                  )}
+                </div>
+                {dateInfo.playlistUrl && (
+                  <a href={dateInfo.playlistUrl} target="_blank" rel="noreferrer" className="w-full sm:w-auto bg-red-600/10 hover:bg-red-600/20 text-red-500 border border-red-500/20 px-4 py-2 rounded-lg font-bold flex items-center justify-center text-sm transition-colors shrink-0">
+                    <Play className="w-4 h-4 mr-2" />
+                    Abrir Playlist
+                  </a>
+                )}
+             </div>
+
              
              {dateInfo.songs.length === 0 ? (
                <div className="text-center py-16 border-2 border-neutral-800 border-dashed rounded-xl m-2">
