@@ -43,7 +43,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <Calendar className="w-5 h-5" />
               <span className="text-xs md:text-sm font-medium">Cultos</span>
             </Link>
-            
+
             <Link href="/dashboard/library" className={`flex flex-col md:flex-row items-center space-y-1 md:space-y-0 md:space-x-3 p-2 rounded-lg transition-colors ${pathname === '/dashboard/library' ? 'text-pink-500 md:bg-pink-500/10' : 'text-neutral-400 hover:text-white hover:bg-neutral-800'}`}>
               <Music className="w-5 h-5" />
               <span className="text-xs md:text-sm font-medium">Repertorio</span>
@@ -78,21 +78,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <main className="flex-1 w-full pb-20 md:pb-0 overflow-y-auto">
         {/* Mobile Header */}
         <header className="md:hidden bg-neutral-900 border-b border-neutral-800 px-4 py-4 flex justify-between items-center sticky top-0 z-40">
-           <div>
+          <div>
             <h1 className="text-lg font-bold text-white tracking-tight">Worship<span className="text-pink-500">Studio</span></h1>
-           </div>
-           <div className="flex items-center space-x-2">
-             <div className="text-right">
-                <p className="text-sm font-medium text-white leading-none">{currentUser.name}</p>
-                <p className="text-[10px] text-pink-400 mt-1 uppercase tracking-wider">{currentUser.role}</p>
-             </div>
-             <div className="w-8 h-8 rounded-full bg-neutral-800 border border-neutral-700 flex items-center justify-center">
-                <UserIcon className="w-4 h-4 text-neutral-400" />
-             </div>
-           </div>
+          </div>
+          <div className="flex items-center space-x-2">
+            <div className="text-right">
+              <p className="text-sm font-medium text-white leading-none">{currentUser.name}</p>
+              <p className="text-[10px] text-pink-400 mt-1 uppercase tracking-wider">{currentUser.role}</p>
+            </div>
+            <div className="w-8 h-8 rounded-full bg-neutral-800 border border-neutral-700 flex items-center justify-center">
+              <UserIcon className="w-4 h-4 text-neutral-400" />
+            </div>
+          </div>
         </header>
 
-        <div className="max-w-6xl mx-auto md:p-8 p-4">
+        <div className="mx-auto md:p-8 p-4">
           {children}
         </div>
       </main>
