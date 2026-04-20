@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { User } from '../../lib/types';
-import { LogOut, Calendar, Music, Settings, User as UserIcon, Users } from 'lucide-react';
+import { LogOut, Calendar, Music, Settings, User as UserIcon, Users, Grid } from 'lucide-react';
 import Link from 'next/link';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -54,6 +54,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <Link href="/dashboard/members" className={`flex flex-col md:flex-row items-center space-y-1 md:space-y-0 md:space-x-3 p-2 rounded-lg transition-colors ${pathname === '/dashboard/members' ? 'text-pink-500 md:bg-pink-500/10' : 'text-neutral-400 hover:text-white hover:bg-neutral-800'}`}>
                   <Users className="w-5 h-5" />
                   <span className="text-xs md:text-sm font-medium">Miembros</span>
+                </Link>
+                <Link href="/dashboard/matrix" className={`flex flex-col md:flex-row items-center space-y-1 md:space-y-0 md:space-x-3 p-2 rounded-lg transition-colors ${pathname === '/dashboard/matrix' ? 'text-pink-500 md:bg-pink-500/10' : 'text-neutral-400 hover:text-white hover:bg-neutral-800'}`}>
+                  <Grid className="w-5 h-5" />
+                  <span className="text-xs md:text-sm font-medium">Matriz</span>
                 </Link>
                 <Link href="/dashboard/settings" className={`flex flex-col md:flex-row items-center space-y-1 md:space-y-0 md:space-x-3 p-2 rounded-lg transition-colors ${pathname === '/dashboard/settings' ? 'text-pink-500 md:bg-pink-500/10' : 'text-neutral-400 hover:text-white hover:bg-neutral-800'}`}>
                   <Settings className="w-5 h-5" />

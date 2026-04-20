@@ -44,7 +44,7 @@ Bienvenido a la documentación oficial y bitácora de desarrollo de **WorshipStu
 - **Autocompletado Proactivo**: Al digitar un título en la ventana de "Añadir a Culto", un Dropdown en vivo cruza la información de la Biblioteca y rellena automáticamente todo el formulario (Tono / Youtube / Artista).
 - **Protección Anti-Duplicados**: El cruce de información escanea además si esa canción se utilizará este mismo Mes y despliega la advertencia: *"Advertencia: Ya se usó este mes en: Domingo 1"*, para forzar rotación de repertorios y variedad.
 
-### Fase 5: Vistas de Alta Densidad (Matriz Vocal)
+### Fase 5: Vistas de Alta Densidad (Matriz Vocal) [COMPLETADO ✅]
 **Objetivo:** Dar al usuario administrativo una vista rápida y masiva de todo el repositorio sin interactuar demasiado.
 - **Toggle Cards/Tabla:** Se incrustó un control de visualización en el Panel de Repertorio que permite oscilar entre tarjetas enriquecidas (Móviles) y una Tabla de datos clásicos (PC/Laptop).
 - **Matriz Cruzada Dinámica:** En la vista de tabla, el sistema extrae automáticamente la lista de todos los `Usuarios` con Rol=`CANTOR` para crear N columnas infinitas hacia la derecha.
@@ -67,7 +67,19 @@ Bienvenido a la documentación oficial y bitácora de desarrollo de **WorshipStu
 
 ---
 
+### Fase 7: Planificación Mensual Interactiva y Masiva (Matrix View V2)
+**Objetivo:** Centralizar y agilizar milimétricamente la toma de decisiones administrativas del mes entero en una sola pantalla.
+- **Matriz de Alta Densidad:** Nueva vista `/dashboard/matrix` exclusiva para Directores que cruza a todos los Miembros vs todos los Cultos del mes.
+- **Asignación Quick-Assign:** Implementación de un Modal interactivo que permite fijar quién **Preside (Líder)** y quién **Acompaña (Coro)** con un solo click sobre la celda del usuario.
+- **Indicadores de Salud (Dashboarding):** La matriz calcula y muestra visualmente la carga de trabajo de los miembros (cuántos días disponibles vs asignados tienen en el mes). Además alerta en la cabecera del culto si le falta asignar un líder y si ya cuentan con canciones programadas.
+- **Ajuste de Emergencia:** Los directores pueden forzar la anulación o activación de la disponibilidad de un usuario sobreescribiendo sus respuestas desde el mini-modal individual sin salir de la matriz.
+- **Editor Masivo (Bulk Editor):** Al dar clic en una fecha, se despliega un gran panel que lista a TODO el equipo permitiendo, mediante interruptores interactivos (switches), definir quién está disponible, y asignar múltiples roles simultáneos a varias personas guardando una configuración completa entera del culto en un solo envío a la base de datos.
+- **Diseño de Vanguardia:** Uso de *Glassmorphism*, opacidades inteligentes para inactividades, redondos modernos y códigos de colores vibrantes para una lectura visual instantánea del estado del mes.
+
+---
+
 ## 🚀 Próximos pasos
 1. **Despliegue a Vercel:** Publicar la app en la nube con costo CERO usando `vercel deploy` para que todos en la iglesia accedan desde su celular con una URL real.
 2. **PWA:** Hacer una Web App Progresiva con un `manifest.json` para que iOS / Android ofrezca "Instalar en Escritorio" desde Chrome o Safari.
 3. **Notificaciones:** Implementar alertas (push/email) cuando un bosquejo pase a revisión.
+4. **Auto-Scheduling:** Explorar asignación automática basada en historial de participación y balance de equipo.
