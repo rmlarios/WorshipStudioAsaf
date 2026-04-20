@@ -242,7 +242,7 @@ export default function MatrixView() {
                           <span className="text-[10px] text-neutral-500 uppercase font-bold tracking-widest mb-1">{format(parseISO(date.dateStr), 'dd MMM', { locale: es })}</span>
                           <div className="flex items-center space-x-1.5 mb-1.5">
                             <span className="text-white font-medium">{date.dayName.split(' ')[0]}</span>
-                            {!date.directorId && <AlertTriangle className="w-3.5 h-3.5 text-yellow-500 drop-shadow-[0_0_5px_rgba(234,179,8,0.5)]" title="Sin Líder" />}
+                            {!date.directorId && <span title="Sin Líder"><AlertTriangle className="w-3.5 h-3.5 text-yellow-500 drop-shadow-[0_0_5px_rgba(234,179,8,0.5)]" /></span>}
                           </div>
                           {date.locked && <span className="text-[9px] bg-red-500/20 text-red-500 px-1.5 py-0.5 rounded font-bold border border-red-500/20 mt-1">CERRADO</span>}
                         </button>
