@@ -35,7 +35,7 @@ export default function SetlistPreview({ serviceDate, allUsers, onClose, showEdi
       onClick={onClose}
     >
       <div style={{ zoom: 1.25 }}
-        className="bg-neutral-950 border border-neutral-800/80 rounded-xl w-full max-w-xs shadow-[0_0_40px_rgba(236,72,153,0.12)] relative overflow-hidden"
+        className="bg-neutral-950/90 backdrop-blur-xl border border-white/10 rounded-2xl w-full max-w-sm shadow-[0_20px_50px_rgba(0,0,0,0.5),0_0_20px_rgba(236,72,153,0.1)] relative overflow-hidden animate-in fade-in zoom-in-95 duration-200 border-2"
         onClick={e => e.stopPropagation()}
       >
         {/* Close */}
@@ -47,25 +47,29 @@ export default function SetlistPreview({ serviceDate, allUsers, onClose, showEdi
         </button>
 
         {/* Header */}
-        <div className="bg-gradient-to-b from-neutral-900 to-neutral-950 px-4 pt-4 pb-3 border-b border-neutral-800/50">
-          <h3 className="text-base font-black tracking-widest text-white uppercase text-center leading-tight">
-            {serviceDate.dayName}
-          </h3>
-          <p className="text-[10px] text-pink-400/70 font-bold uppercase tracking-widest text-center mt-0.5">
-            {serviceDate.dateStr}
-          </p>
-          <div className="flex justify-center mt-2">
-            <span className="text-[9px] bg-neutral-800 border border-neutral-700/50 text-neutral-400 px-2 py-0.5 rounded-full uppercase font-bold tracking-wider">
-              Preside: <span className="text-pink-300">{directorName}</span>
-            </span>
-            <span className="text-[9px] bg-neutral-800 border border-neutral-700/50 text-neutral-400 px-2 py-0.5 rounded-full uppercase font-bold tracking-wider">
-              Coro: <span className="text-pink-300">{choirName}</span>
-            </span>
+        <div className="relative bg-gradient-to-br from-neutral-800 via-neutral-900 to-neutral-950 px-4 pt-4 pb-3 border-b border-white/5">
+          {/* Metallic Sheen Effect Overlay */}
+          <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-transparent pointer-events-none"></div>
+          <div className="relative z-10">
+            <h3 className="text-base font-black tracking-widest text-white uppercase text-center leading-tight">
+              {serviceDate.dayName}
+            </h3>
+            <p className="text-[10px] text-pink-400/70 font-bold uppercase tracking-widest text-center mt-0.5">
+              {serviceDate.dateStr}
+            </p>
+            <div className="flex justify-center mt-2 flex-wrap gap-2">
+              <span className="text-[9px] bg-neutral-800 border border-neutral-700/50 text-neutral-400 px-2 py-0.5 rounded-full uppercase font-bold tracking-wider whitespace-nowrap">
+                Preside: <span className="text-pink-300">{directorName}</span>
+              </span>
+              <span className="text-[9px] bg-neutral-800 border border-neutral-700/50 text-neutral-400 px-2 py-0.5 rounded-full uppercase font-bold tracking-wider whitespace-nowrap">
+                Coro: <span className="text-pink-300">{choirName}</span>
+              </span>
+            </div>
           </div>
         </div>
 
-        {/* Song list */}
-        <div className="px-3 py-2.5 space-y-3">
+        {/* Song list wrapper with subtle inner shadow */}
+        <div className="px-3 py-2.5 space-y-3 bg-gradient-to-b from-transparent to-black/20">
           {(!serviceDate.songs || serviceDate.songs.length === 0) ? (
             <p className="text-center text-neutral-600 text-xs py-4">No hay canciones en este culto.</p>
           ) : (
@@ -98,7 +102,7 @@ export default function SetlistPreview({ serviceDate, allUsers, onClose, showEdi
                             </span>
                             <div className="min-w-0">
                               <span className="font-semibold text-white text-[11px] leading-none block truncate">
-                                {song.title}
+                                {song.title} - ({song.artist})
                               </span>
                               {showSinger && (
                                 <span className="text-[10px] text-pink-400/80 font-medium">
