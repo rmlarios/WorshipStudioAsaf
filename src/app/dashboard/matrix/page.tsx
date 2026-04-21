@@ -4,10 +4,11 @@ import { useState, useEffect, useCallback, useMemo, Fragment } from 'react';
 import Link from 'next/link';
 import * as store from '../../../lib/firebaseStore';
 import { User, ServiceDate, Availability } from '../../../lib/types';
-import { ChevronLeft, ChevronRight, Check, X, Star, Mic2, Minus, Loader2, AlertTriangle, Music, Badge, Eye } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Check, X, Star, Mic2, Minus, Loader2, AlertTriangle, Music, Badge, Eye, FileText } from 'lucide-react';
 import { format, addMonths, subMonths, parseISO, startOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import SetlistPreview from '../../../components/SetlistPreview';
+import { exportMonthToPDF } from '../../../lib/exportUtils';
 
 export default function MatrixView() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -28,6 +29,7 @@ export default function MatrixView() {
   const [selectedDateForBulk, setSelectedDateForBulk] = useState<ServiceDate | null>(null);
   const [bulkState, setBulkState] = useState<BulkState | null>(null);
   const [previewDate, setPreviewDate] = useState<ServiceDate | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
 
   useEffect(() => {
     const userStr = localStorage.getItem('currentUser');
@@ -180,6 +182,18 @@ export default function MatrixView() {
     setIsSaving(false);
   };
 
+  const handleExportPDF = async () => {
+    setIsExporting(true);
+    try {
+      const monthStr = format(currentMonth, 'yyyy-MM');
+      await exportMonthToPDF(monthStr);
+    } catch (err) {
+      console.error(err);
+      alert("Error al exportar PDF");
+    }
+    setIsExporting(false);
+  };
+
   const groupedUsers = useMemo(() => {
     const directors = allUsers.filter(u => u.role === 'DIRECTOR');
     const cantores = allUsers.filter(u => u.role === 'CANTOR');
@@ -204,10 +218,21 @@ export default function MatrixView() {
           <ChevronLeft className="w-6 h-6 text-neutral-400" />
         </button>
         <div className="text-center">
-          <h2 className="text-xl font-bold text-white capitalize">
+          <h2 className="text-xl font-bold text-white capitalize leading-tight">
             {format(currentMonth, 'MMMM yyyy', { locale: es })}
           </h2>
-          <p className="text-xs text-neutral-400 mt-1 uppercase tracking-widest">Matriz de Planificación</p>
+          <div className="flex items-center justify-center space-x-3 mt-1">
+            <p className="text-[10px] text-neutral-400 uppercase tracking-widest">Matriz de Planificación</p>
+            <span className="w-1 h-1 bg-neutral-700 rounded-full"></span>
+            <button 
+              onClick={handleExportPDF} 
+              disabled={isExporting}
+              className="flex items-center space-x-1 text-[10px] text-pink-500 hover:text-pink-400 font-bold uppercase tracking-widest transition-all disabled:opacity-50"
+            >
+              {isExporting ? <Loader2 className="w-3 h-3 animate-spin" /> : <FileText className="w-3 h-3" />}
+              <span>Exportar PDF</span>
+            </button>
+          </div>
         </div>
         <button onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} className="p-2 hover:bg-neutral-800 rounded-full transition-colors">
           <ChevronRight className="w-6 h-6 text-neutral-400" />

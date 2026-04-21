@@ -4,10 +4,11 @@ import { useState, useEffect, useCallback } from 'react';
 import * as store from '../../lib/firebaseStore';
 import { User, ServiceDate, Availability } from '../../lib/types';
 import Link from 'next/link';
-import { ChevronLeft, ChevronRight, CheckCircle2, Circle, CalendarPlus, CalendarDays, Trash2, Loader2, Eye } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CheckCircle2, Circle, CalendarPlus, CalendarDays, Trash2, Loader2, Eye, FileText } from 'lucide-react';
 import { format, addMonths, subMonths, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, getDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import SetlistPreview from '../../components/SetlistPreview';
+import { exportMonthToPDF } from '../../lib/exportUtils';
 
 export default function Dashboard() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -25,6 +26,7 @@ export default function Dashboard() {
   const [manualDate, setManualDate] = useState('');
   const [manualName, setManualName] = useState('');
   const [previewDate, setPreviewDate] = useState<ServiceDate | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
 
   useEffect(() => {
     const userStr = localStorage.getItem('currentUser');
@@ -111,6 +113,18 @@ export default function Dashboard() {
     if (addedCount > 0) alert(`Se generaron exitosamente ${addedCount} cultos para este mes.`);
   };
 
+  const handleExportPDF = async () => {
+    setIsExporting(true);
+    try {
+      const monthStr = format(currentMonth, 'yyyy-MM');
+      await exportMonthToPDF(monthStr);
+    } catch (err) {
+      console.error(err);
+      alert("Error al exportar PDF");
+    }
+    setIsExporting(false);
+  };
+
   const handleManualAddDate = async () => {
     if (!manualDate) return;
     const parsed = parseISO(manualDate);
@@ -147,9 +161,19 @@ export default function Dashboard() {
         <button onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} className="p-2 hover:bg-neutral-800 rounded-full transition-colors">
           <ChevronLeft className="w-6 h-6 text-neutral-400" />
         </button>
-        <h2 className="text-xl font-bold text-white capitalize">
-          {format(currentMonth, 'MMMM yyyy', { locale: es })}
-        </h2>
+        <div className="flex flex-col items-center">
+          <h2 className="text-xl font-bold text-white capitalize leading-tight">
+            {format(currentMonth, 'MMMM yyyy', { locale: es })}
+          </h2>
+          <button 
+            onClick={handleExportPDF} 
+            disabled={isExporting}
+            className="flex items-center space-x-1 text-[10px] text-pink-500 hover:text-pink-400 font-bold uppercase tracking-widest mt-1 transition-all disabled:opacity-50"
+          >
+            {isExporting ? <Loader2 className="w-3 h-3 animate-spin" /> : <FileText className="w-3 h-3" />}
+            <span>Exportar PDF</span>
+          </button>
+        </div>
         <button onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} className="p-2 hover:bg-neutral-800 rounded-full transition-colors">
           <ChevronRight className="w-6 h-6 text-neutral-400" />
         </button>
