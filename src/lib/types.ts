@@ -9,6 +9,8 @@ export interface User {
   active: boolean;
 }
 
+export type SongSection = 'ALABANZAS' | 'ADORACIÓN' | 'OFRENDA' | 'DESPEDIDA' | 'GENERAL';
+
 export interface Song {
   id: string;
   title: string;
@@ -17,6 +19,7 @@ export interface Song {
   version: string;
   youtubeUrl: string;
   leadSingerId?: string; // Voice assigned to sing
+  section?: SongSection;
 }
 
 // Global Library Song

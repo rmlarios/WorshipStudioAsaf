@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo, Fragment } from 'react';
 import Link from 'next/link';
 import * as store from '../../../lib/firebaseStore';
 import { User, ServiceDate, Availability } from '../../../lib/types';
-import { ChevronLeft, ChevronRight, Check, X, Star, Mic2, Minus, Loader2, AlertTriangle, Music, Badge } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Check, X, Star, Mic2, Minus, Loader2, AlertTriangle, Music, Badge, Eye } from 'lucide-react';
 import { format, addMonths, subMonths, parseISO, startOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -26,6 +26,7 @@ export default function MatrixView() {
   }
   const [selectedDateForBulk, setSelectedDateForBulk] = useState<ServiceDate | null>(null);
   const [bulkState, setBulkState] = useState<BulkState | null>(null);
+  const [previewDate, setPreviewDate] = useState<ServiceDate | null>(null);
 
   useEffect(() => {
     const userStr = localStorage.getItem('currentUser');
@@ -101,25 +102,25 @@ export default function MatrixView() {
     setIsSaving(true);
     try {
       await store.setAvailability(selectedCell.dateId, selectedCell.userId, available);
-      
+
       // Si estamos marcando como NO disponible y el usuario estaba asignado a LIDER o CORO, 
       // limpiamos su asignación automáticamente para mantener consistencia.
       if (!available) {
         const date = serviceDates.find(d => d.id === selectedCell.dateId);
         if (date) {
-           let changed = false;
-           const updatedDate = { ...date };
-           if (updatedDate.directorId === selectedCell.userId) {
-             updatedDate.directorId = '';
-             changed = true;
-           }
-           if (updatedDate.acompaniantesIds.includes(selectedCell.userId)) {
-             updatedDate.acompaniantesIds = updatedDate.acompaniantesIds.filter(id => id !== selectedCell.userId);
-             changed = true;
-           }
-           if (changed) {
-             await store.updateServiceDate(updatedDate);
-           }
+          let changed = false;
+          const updatedDate = { ...date };
+          if (updatedDate.directorId === selectedCell.userId) {
+            updatedDate.directorId = '';
+            changed = true;
+          }
+          if (updatedDate.acompaniantesIds.includes(selectedCell.userId)) {
+            updatedDate.acompaniantesIds = updatedDate.acompaniantesIds.filter(id => id !== selectedCell.userId);
+            changed = true;
+          }
+          if (changed) {
+            await store.updateServiceDate(updatedDate);
+          }
         }
       }
 
@@ -156,10 +157,10 @@ export default function MatrixView() {
         const myAvailRaw = availabilities.find(a => a.serviceDateId === selectedDateForBulk.id && a.userId === u.id);
         const originalAvail = myAvailRaw ? myAvailRaw.available : undefined;
         const currentAvail = bulkState.availabilities[u.id];
-        
+
         // Save if changed from original, or if newly defined as essentially taking an action in the UI
         if (originalAvail !== currentAvail) {
-           promises.push(store.setAvailability(selectedDateForBulk.id, u.id, currentAvail));
+          promises.push(store.setAvailability(selectedDateForBulk.id, u.id, currentAvail));
         }
       });
       await Promise.all(promises);
@@ -172,7 +173,7 @@ export default function MatrixView() {
       await loadData();
       setSelectedDateForBulk(null);
       setBulkState(null);
-    } catch(err) {
+    } catch (err) {
       console.error(err);
     }
     setIsSaving(false);
@@ -233,7 +234,7 @@ export default function MatrixView() {
                   {serviceDates.map(date => (
                     <th key={date.id} className="p-0 min-w-[140px] text-center border-b border-neutral-800 whitespace-nowrap bg-neutral-950/90 group hover:bg-neutral-800 transition-colors">
                       <div className="flex flex-col w-full h-full">
-                        <button 
+                        <button
                           onClick={() => handleOpenBulk(date)}
                           className="flex flex-col items-center justify-center p-3 w-full border-b border-transparent hover:bg-white/5 transition-colors cursor-pointer disabled:opacity-50"
                           disabled={date.locked}
@@ -247,13 +248,23 @@ export default function MatrixView() {
                           {date.locked && <span className="text-[9px] bg-red-500/20 text-red-500 px-1.5 py-0.5 rounded font-bold border border-red-500/20 mt-1">CERRADO</span>}
                         </button>
 
-                        <Link href={`/dashboard/${date.id}`} className={`flex items-center justify-center py-2 bg-neutral-950 hover:bg-neutral-800 transition-colors border-t border-neutral-800/50`}>
-                           <div className={`flex items-center space-x-1.5 px-2 py-0.5 rounded text-[10px] font-bold transition-colors ${date.songs?.length > 0 ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-neutral-800/50 text-neutral-500 border border-neutral-800/50 hover:bg-neutral-800 hover:text-neutral-400'}`} title="Ir a Pizarra Musical">
-                             <Music className="w-3 h-3" />
-                             <span>{date.songs?.length || 0} Canciones</span>
-                             <ChevronRight className="w-3 h-3 opacity-50" />
-                           </div>
-                        </Link>
+                        <div className="flex bg-neutral-950 border-t border-neutral-800/50">
+                          <Link href={`/dashboard/${date.id}`} className={`flex-1 flex items-center justify-center py-2 hover:bg-neutral-800 transition-colors tooltip tooltip-bottom`} title="Ir a Pizarra Musical">
+                            <div className={`flex items-center space-x-1.5 px-2 py-0.5 rounded text-[10px] font-bold transition-colors ${date.songs?.length > 0 ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-neutral-800/50 text-neutral-500 border border-neutral-800/50 hover:bg-neutral-800 hover:text-neutral-400'}`}>
+                              <Music className="w-3 h-3" />
+                              <span>{date.songs?.length || 0}</span>
+                            </div>
+                          </Link>
+                          {date.songs?.length > 0 && (
+                            <button
+                              onClick={() => setPreviewDate(date)}
+                              className="flex items-center justify-center px-3 py-2 border-l border-neutral-800/50 hover:bg-neutral-800 transition-colors"
+                              title="Vista Previa (WhatsApp)"
+                            >
+                              <Eye className="w-4 h-4 text-pink-500" />
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </th>
                   ))}
@@ -502,16 +513,16 @@ export default function MatrixView() {
 
                         {/* Emergency Adjustment for Available */}
                         <div className="border-t border-neutral-800 pt-3 mt-4">
-                           <button
-                             disabled={isSaving}
-                             onClick={() => handleToggleAvailability(false)}
-                             className="w-full flex items-center justify-between p-3 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded-xl transition-all disabled:opacity-50"
-                           >
-                             <div className="flex items-center space-x-3 text-neutral-400">
-                               <X className="w-4 h-4 text-red-500" />
-                               <span className="text-sm">Marcar como No Disponible</span>
-                             </div>
-                           </button>
+                          <button
+                            disabled={isSaving}
+                            onClick={() => handleToggleAvailability(false)}
+                            className="w-full flex items-center justify-between p-3 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded-xl transition-all disabled:opacity-50"
+                          >
+                            <div className="flex items-center space-x-3 text-neutral-400">
+                              <X className="w-4 h-4 text-red-500" />
+                              <span className="text-sm">Marcar como No Disponible</span>
+                            </div>
+                          </button>
                         </div>
                       </div>
                     )}
@@ -540,128 +551,128 @@ export default function MatrixView() {
           <div className="bg-neutral-900 border border-neutral-800 w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden animate-scale-in relative flex flex-col max-h-[90vh]">
             <div className="p-6 border-b border-neutral-800 shrink-0 flex items-center justify-between bg-neutral-900/90 relative z-20">
               <div>
-                 <h3 className="text-xl font-bold text-white mb-1">Editor Masivo de Culto</h3>
-                 <p className="text-sm text-neutral-400 capitalize">
-                    {selectedDateForBulk.dayName} &bull; {format(parseISO(selectedDateForBulk.dateStr), 'dd MMM yyyy', { locale: es })}
-                 </p>
+                <h3 className="text-xl font-bold text-white mb-1">Editor Masivo de Culto</h3>
+                <p className="text-sm text-neutral-400 capitalize">
+                  {selectedDateForBulk.dayName} &bull; {format(parseISO(selectedDateForBulk.dateStr), 'dd MMM yyyy', { locale: es })}
+                </p>
               </div>
-              <button 
-                 disabled={isSaving}
-                 onClick={() => { setSelectedDateForBulk(null); setBulkState(null); }} 
-                 className="p-2 hover:bg-neutral-800 rounded-full transition-colors disabled:opacity-50"
+              <button
+                disabled={isSaving}
+                onClick={() => { setSelectedDateForBulk(null); setBulkState(null); }}
+                className="p-2 hover:bg-neutral-800 rounded-full transition-colors disabled:opacity-50"
               >
-                 <X className="w-6 h-6 text-neutral-500 hover:text-white" />
+                <X className="w-6 h-6 text-neutral-500 hover:text-white" />
               </button>
             </div>
 
             <div className="p-0 overflow-y-auto flex-1 custom-scrollbar">
               <table className="w-full text-sm text-left">
                 <thead className="bg-[#121212] sticky top-0 z-10 border-b border-neutral-800 shadow-sm">
-                   <tr>
-                     <th className="p-4 text-neutral-400 font-semibold uppercase text-[10px] tracking-wider">Miembro del Equipo</th>
-                     <th className="p-4 text-neutral-400 font-semibold uppercase text-[10px] tracking-wider text-center w-28 border-l border-neutral-800/50">Disponibilidad</th>
-                     <th className="p-4 text-neutral-400 font-semibold uppercase text-[10px] tracking-wider text-center w-64 border-l border-neutral-800/50">Asignación Directa</th>
-                   </tr>
+                  <tr>
+                    <th className="p-4 text-neutral-400 font-semibold uppercase text-[10px] tracking-wider">Miembro del Equipo</th>
+                    <th className="p-4 text-neutral-400 font-semibold uppercase text-[10px] tracking-wider text-center w-28 border-l border-neutral-800/50">Disponibilidad</th>
+                    <th className="p-4 text-neutral-400 font-semibold uppercase text-[10px] tracking-wider text-center w-64 border-l border-neutral-800/50">Asignación Directa</th>
+                  </tr>
                 </thead>
                 <tbody className="divide-y divide-neutral-800/50 bg-[#171717]">
                   {groupedUsers.map(group => (
                     group.users.length > 0 && (
                       <Fragment key={group.role}>
-                         <tr>
-                            <td colSpan={3} className="bg-neutral-950/80 py-2.5 px-4 text-[10px] font-bold text-pink-500 uppercase tracking-widest border-b border-neutral-800">
-                              {group.role}
-                            </td>
-                         </tr>
-                         {group.users.map(user => {
-                            const isAvail = bulkState.availabilities[user.id] || false;
-                            const isDirector = bulkState.directorId === user.id;
-                            const isChoir = bulkState.acompaniantesIds.includes(user.id);
-                            const roleType = isDirector ? 'LIDER' : isChoir ? 'CORO' : 'NONE';
-                            
-                            return (
-                              <tr key={user.id} className="hover:bg-neutral-800/50 transition-colors">
-                                <td className="p-4 flex flex-col justify-center">
-                                  <span className="text-white font-medium text-sm">{user.name}</span>
-                                </td>
-                                <td className="p-4 text-center align-middle border-l border-neutral-800/50 bg-[#1a1a1a]/40">
-                                  {/* Toggle Switch */}
-                                  <button
-                                    onClick={() => {
-                                      const nowAvail = !isAvail;
-                                      const nextAcomp = [...bulkState.acompaniantesIds];
-                                      let nextDir = bulkState.directorId;
-                                      
-                                      if (!nowAvail) {
-                                         if (nextDir === user.id) nextDir = '';
-                                         const idx = nextAcomp.indexOf(user.id);
-                                         if (idx !== -1) nextAcomp.splice(idx, 1);
-                                      }
+                        <tr>
+                          <td colSpan={3} className="bg-neutral-950/80 py-2.5 px-4 text-[10px] font-bold text-pink-500 uppercase tracking-widest border-b border-neutral-800">
+                            {group.role}
+                          </td>
+                        </tr>
+                        {group.users.map(user => {
+                          const isAvail = bulkState.availabilities[user.id] || false;
+                          const isDirector = bulkState.directorId === user.id;
+                          const isChoir = bulkState.acompaniantesIds.includes(user.id);
+                          const roleType = isDirector ? 'LIDER' : isChoir ? 'CORO' : 'NONE';
 
-                                      setBulkState({
-                                        ...bulkState,
-                                        availabilities: { ...bulkState.availabilities, [user.id]: nowAvail },
-                                        directorId: nextDir,
-                                        acompaniantesIds: nextAcomp
-                                      });
-                                    }}
-                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${isAvail ? 'bg-green-500' : 'bg-neutral-700'}`}
-                                  >
-                                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isAvail ? 'translate-x-6' : 'translate-x-1'}`} />
-                                  </button>
-                                </td>
-                                <td className="p-4 border-l border-neutral-800/50">
-                                  {user.role !== 'MUSICO' ? (
-                                    <div className={`flex items-center space-x-1 bg-neutral-950 p-1 rounded-lg border border-neutral-800 transition-all ${!isAvail ? 'opacity-30 pointer-events-none grayscale' : 'opacity-100'}`}>
-                                      <button
-                                        onClick={() => {
-                                          setBulkState({
-                                            ...bulkState,
-                                            directorId: user.id,
-                                            acompaniantesIds: bulkState.acompaniantesIds.filter(id => id !== user.id)
-                                          });
-                                        }}
-                                        className={`flex-1 flex justify-center items-center py-1.5 px-2 rounded-md text-xs font-bold transition-all ${isDirector ? 'bg-yellow-500/20 text-yellow-500 shadow-sm' : 'text-neutral-500 hover:text-white hover:bg-neutral-800'}`}
-                                      >
-                                        <Star className="w-3.5 h-3.5 mr-1" fill={isDirector ? "currentColor" : "none"} /> Líder
-                                      </button>
-                                      <button
-                                        onClick={() => {
-                                          const nextAcomp = [...bulkState.acompaniantesIds];
-                                          if (!nextAcomp.includes(user.id)) nextAcomp.push(user.id);
-                                          
-                                          setBulkState({
-                                            ...bulkState,
-                                            directorId: bulkState.directorId === user.id ? '' : bulkState.directorId,
-                                            acompaniantesIds: nextAcomp
-                                          });
-                                        }}
-                                        className={`flex-1 flex justify-center items-center py-1.5 px-2 rounded-md text-xs font-bold transition-all ${isChoir ? 'bg-pink-500/20 text-pink-400 shadow-sm' : 'text-neutral-500 hover:text-white hover:bg-neutral-800'}`}
-                                      >
-                                        <Mic2 className="w-3.5 h-3.5 mr-1" /> Coro
-                                      </button>
-                                       <button
-                                        onClick={() => {
-                                          setBulkState({
-                                            ...bulkState,
-                                            directorId: bulkState.directorId === user.id ? '' : bulkState.directorId,
-                                            acompaniantesIds: bulkState.acompaniantesIds.filter(id => id !== user.id)
-                                          });
-                                        }}
-                                        className={`p-1.5 rounded-md text-neutral-500 hover:text-white hover:bg-neutral-800 transition-colors ${roleType === 'NONE' ? 'text-white bg-neutral-800' : ''}`}
-                                        title="Quitar Asignación"
-                                      >
-                                        <Minus className="w-4 h-4" />
-                                      </button>
-                                    </div>
-                                  ) : (
-                                    <div className="flex justify-center items-center opacity-50 h-full">
-                                      <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest flex items-center"><Check className="w-3 h-3 mr-1"/> Soporte Base</span>
-                                    </div>
-                                  )}
-                                </td>
-                              </tr>
-                            );
-                         })}
+                          return (
+                            <tr key={user.id} className="hover:bg-neutral-800/50 transition-colors">
+                              <td className="p-4 flex flex-col justify-center">
+                                <span className="text-white font-medium text-sm">{user.name}</span>
+                              </td>
+                              <td className="p-4 text-center align-middle border-l border-neutral-800/50 bg-[#1a1a1a]/40">
+                                {/* Toggle Switch */}
+                                <button
+                                  onClick={() => {
+                                    const nowAvail = !isAvail;
+                                    const nextAcomp = [...bulkState.acompaniantesIds];
+                                    let nextDir = bulkState.directorId;
+
+                                    if (!nowAvail) {
+                                      if (nextDir === user.id) nextDir = '';
+                                      const idx = nextAcomp.indexOf(user.id);
+                                      if (idx !== -1) nextAcomp.splice(idx, 1);
+                                    }
+
+                                    setBulkState({
+                                      ...bulkState,
+                                      availabilities: { ...bulkState.availabilities, [user.id]: nowAvail },
+                                      directorId: nextDir,
+                                      acompaniantesIds: nextAcomp
+                                    });
+                                  }}
+                                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${isAvail ? 'bg-green-500' : 'bg-neutral-700'}`}
+                                >
+                                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isAvail ? 'translate-x-6' : 'translate-x-1'}`} />
+                                </button>
+                              </td>
+                              <td className="p-4 border-l border-neutral-800/50">
+                                {user.role !== 'MUSICO' ? (
+                                  <div className={`flex items-center space-x-1 bg-neutral-950 p-1 rounded-lg border border-neutral-800 transition-all ${!isAvail ? 'opacity-30 pointer-events-none grayscale' : 'opacity-100'}`}>
+                                    <button
+                                      onClick={() => {
+                                        setBulkState({
+                                          ...bulkState,
+                                          directorId: user.id,
+                                          acompaniantesIds: bulkState.acompaniantesIds.filter(id => id !== user.id)
+                                        });
+                                      }}
+                                      className={`flex-1 flex justify-center items-center py-1.5 px-2 rounded-md text-xs font-bold transition-all ${isDirector ? 'bg-yellow-500/20 text-yellow-500 shadow-sm' : 'text-neutral-500 hover:text-white hover:bg-neutral-800'}`}
+                                    >
+                                      <Star className="w-3.5 h-3.5 mr-1" fill={isDirector ? "currentColor" : "none"} /> Líder
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        const nextAcomp = [...bulkState.acompaniantesIds];
+                                        if (!nextAcomp.includes(user.id)) nextAcomp.push(user.id);
+
+                                        setBulkState({
+                                          ...bulkState,
+                                          directorId: bulkState.directorId === user.id ? '' : bulkState.directorId,
+                                          acompaniantesIds: nextAcomp
+                                        });
+                                      }}
+                                      className={`flex-1 flex justify-center items-center py-1.5 px-2 rounded-md text-xs font-bold transition-all ${isChoir ? 'bg-pink-500/20 text-pink-400 shadow-sm' : 'text-neutral-500 hover:text-white hover:bg-neutral-800'}`}
+                                    >
+                                      <Mic2 className="w-3.5 h-3.5 mr-1" /> Coro
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        setBulkState({
+                                          ...bulkState,
+                                          directorId: bulkState.directorId === user.id ? '' : bulkState.directorId,
+                                          acompaniantesIds: bulkState.acompaniantesIds.filter(id => id !== user.id)
+                                        });
+                                      }}
+                                      className={`p-1.5 rounded-md text-neutral-500 hover:text-white hover:bg-neutral-800 transition-colors ${roleType === 'NONE' ? 'text-white bg-neutral-800' : ''}`}
+                                      title="Quitar Asignación"
+                                    >
+                                      <Minus className="w-4 h-4" />
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <div className="flex justify-center items-center opacity-50 h-full">
+                                    <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest flex items-center"><Check className="w-3 h-3 mr-1" /> Soporte Base</span>
+                                  </div>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </Fragment>
                     )
                   ))}
@@ -670,28 +681,103 @@ export default function MatrixView() {
             </div>
 
             <div className="p-5 border-t border-neutral-800 bg-neutral-900 shrink-0 flex justify-end space-x-3 relative z-20">
-               <button 
-                 disabled={isSaving}
-                 onClick={() => { setSelectedDateForBulk(null); setBulkState(null); }}
-                 className="px-5 py-2.5 text-sm font-medium text-neutral-300 hover:text-white transition-colors"
-               >
-                 Cancelar
-               </button>
-               <button
-                 disabled={isSaving}
-                 onClick={handleSaveBulk}
-                 className="px-8 py-2.5 bg-pink-600 hover:bg-pink-500 text-white text-sm font-bold rounded-xl transition-all shadow-[0_0_20px_rgba(219,39,119,0.3)] hover:shadow-[0_0_25px_rgba(219,39,119,0.5)] flex items-center space-x-2 disabled:opacity-50"
-               >
-                 {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                 <span>Guardar Controles</span>
-               </button>
+              <button
+                disabled={isSaving}
+                onClick={() => { setSelectedDateForBulk(null); setBulkState(null); }}
+                className="px-5 py-2.5 text-sm font-medium text-neutral-300 hover:text-white transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                disabled={isSaving}
+                onClick={handleSaveBulk}
+                className="px-8 py-2.5 bg-pink-600 hover:bg-pink-500 text-white text-sm font-bold rounded-xl transition-all shadow-[0_0_20px_rgba(219,39,119,0.3)] hover:shadow-[0_0_25px_rgba(219,39,119,0.5)] flex items-center space-x-2 disabled:opacity-50"
+              >
+                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                <span>Guardar Controles</span>
+              </button>
             </div>
             {isSaving && (
               <div className="absolute inset-0 bg-neutral-950/40 backdrop-blur-[1px] flex items-center justify-center z-30 flex-col">
-                 <Loader2 className="w-10 h-10 animate-spin text-pink-500 mb-4" />
-                 <span className="text-white font-medium text-sm drop-shadow-md">Procesando equipo...</span>
+                <Loader2 className="w-10 h-10 animate-spin text-pink-500 mb-4" />
+                <span className="text-white font-medium text-sm drop-shadow-md">Procesando equipo...</span>
               </div>
             )}
+          </div>
+        </div>
+      )}
+      {/* Inline Setlist Preview Modal */}
+      {previewDate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/85 backdrop-blur-sm text-white" onClick={() => setPreviewDate(null)}>
+          <div className="bg-neutral-950 border border-neutral-800/80 rounded-xl w-full max-w-xs shadow-[0_0_40px_rgba(236,72,153,0.15)] relative overflow-hidden" onClick={e => e.stopPropagation()}>
+            {/* Close */}
+            <button onClick={() => setPreviewDate(null)} className="absolute top-2 right-2 p-1 bg-neutral-900 hover:bg-neutral-800 rounded-full z-10 transition-colors">
+              <X className="w-3.5 h-3.5 text-neutral-400" />
+            </button>
+
+            {/* Header */}
+            <div className="bg-gradient-to-b from-neutral-900 to-neutral-950 px-4 pt-4 pb-3 border-b border-neutral-800/50">
+              <h3 className="text-base font-black tracking-widest text-white uppercase text-center leading-tight">{previewDate.dayName}</h3>
+              <p className="text-[10px] text-pink-400/70 font-bold uppercase tracking-widest text-center mt-0.5">{previewDate.dateStr}</p>
+              <div className="flex justify-center mt-2">
+                <span className="text-[9px] bg-neutral-800 border border-neutral-700/50 text-neutral-400 px-2 py-0.5 rounded-full uppercase font-bold tracking-wider">
+                  Preside: <span className="text-pink-300">{allUsers.find(u => u.id === previewDate.directorId)?.name || 'Sin asignar'}</span>
+                </span>
+              </div>
+            </div>
+
+            {/* Song list */}
+            <div className="px-3 py-2.5 space-y-3">
+              {previewDate.songs?.length === 0 ? (
+                <p className="text-center text-neutral-600 text-xs py-4">No hay canciones en este culto.</p>
+              ) : (
+                [{ id: 'ALABANZAS', label: 'Alabanzas' },
+                { id: 'ADORACIÓN', label: 'Adoración' },
+                { id: 'OFRENDA', label: 'Ofrenda' },
+                { id: 'DESPEDIDA', label: 'Despedida' },
+                { id: 'GENERAL', label: 'General' }]
+                  .filter(sec => previewDate.songs?.some(s => (s.section || 'GENERAL') === sec.id))
+                  .map(section => {
+                    const sectionSongs = previewDate.songs?.filter(s => (s.section || 'GENERAL') === section.id) || [];
+                    return (
+                      <div key={section.id}>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-[8px] font-black tracking-[0.15em] text-neutral-600 uppercase shrink-0">{section.label}</span>
+                          <div className="h-px bg-neutral-800 flex-1"></div>
+                        </div>
+                        <div className="space-y-0.5">
+                          {sectionSongs.map((song, i) => {
+                            const singerName = allUsers.find(u => u.id === song.leadSingerId)?.name;
+                            const showSinger = !!song.leadSingerId && song.leadSingerId !== previewDate.directorId;
+                            return (
+                              <div key={song.id} className="flex items-center justify-between gap-2 px-2 py-1.5 rounded-md hover:bg-neutral-900/60 transition-colors">
+                                <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                                  <span className="text-[9px] font-bold text-neutral-700 shrink-0 w-3.5 text-right">{i + 1}.</span>
+                                  <div className="min-w-0">
+                                    <span className="font-semibold text-white text-[11px] leading-none block truncate">{song.title}</span>
+                                    {showSinger && (
+                                      <span className="text-[10px] text-pink-400/80 font-medium">↳ {singerName}</span>
+                                    )}
+                                  </div>
+                                </div>
+                                <span className="text-[10px] font-mono font-bold text-pink-400 shrink-0 bg-pink-950/40 px-1.5 py-0.5 rounded border border-pink-900/40">
+                                  {song.tone}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="px-4 py-2 border-t border-neutral-800/50 flex items-center justify-between">
+              <span className="text-[9px] text-neutral-600 font-medium">{previewDate.songs?.length || 0} canciones · Asaf</span>
+              <Link href={`/dashboard/${previewDate.id}`} className="text-[9px] text-pink-500 hover:text-pink-400 font-bold uppercase tracking-wider transition-colors">Editar →</Link>
+            </div>
           </div>
         </div>
       )}

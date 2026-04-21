@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import * as store from '../../../lib/firebaseStore';
 import { User, ServiceDate, Availability, Song, LibrarySong } from '../../../lib/types';
-import { ArrowLeft, Lock, Unlock, Play, Save, Plus, Trash2, Send, CheckCircle, XCircle, Edit2, AlertTriangle, Loader2 } from 'lucide-react';
+import { ArrowLeft, Lock, Unlock, Play, Save, Plus, Trash2, Send, CheckCircle, XCircle, Edit2, AlertTriangle, Loader2, Eye, Smartphone, X } from 'lucide-react';
 import Link from 'next/link';
 
 export default function DateDetails() {
@@ -13,6 +13,7 @@ export default function DateDetails() {
   const dateId = params.dateId as string;
 
   const [dateInfo, setDateInfo] = useState<ServiceDate | null>(null);
+  const [monthDates, setMonthDates] = useState<ServiceDate[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [availabilities, setAvailabilities] = useState<Availability[]>([]);
@@ -21,7 +22,8 @@ export default function DateDetails() {
   const [loading, setLoading] = useState(true);
 
   // New Song form
-  const [newSong, setNewSong] = useState<Partial<Song>>({ title: '', artist: '', tone: '', version: '', youtubeUrl: '', leadSingerId: '' });
+  const [newSong, setNewSong] = useState<Partial<Song>>({ title: '', artist: '', tone: '', version: '', youtubeUrl: '', leadSingerId: '', section: 'GENERAL' });
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [duplicationWarning, setDuplicationWarning] = useState<string[]>([]);
   
@@ -37,6 +39,14 @@ export default function DateDetails() {
     if (userStr) {
       setCurrentUser(JSON.parse(userStr));
     }
+    
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('preview') === 'true') {
+         // Pequeno timeout para que la animación se vea bien cuando carga la data
+         setTimeout(() => setShowPreviewModal(true), 300);
+      }
+    }
   }, []);
 
   const loadData = useCallback(async () => {
@@ -51,6 +61,7 @@ export default function DateDetails() {
       if (current) {
         if (!current.songsStatus) current.songsStatus = 'DRAFT';
         setDateInfo(current);
+        setMonthDates(dates.filter(d => d.month === current.month));
         const avails = await store.getAvailabilities(dateId);
         setAvailabilities(avails);
         const libs = await store.getLibrary();
@@ -121,7 +132,8 @@ export default function DateDetails() {
       tone: newSong.tone || 'Desconocido',
       version: newSong.version || '',
       youtubeUrl: newSong.youtubeUrl || '',
-      leadSingerId: newSong.leadSingerId || ''
+      leadSingerId: newSong.leadSingerId || '',
+      section: newSong.section as any || 'GENERAL'
     };
     
     const updated = { ...dateInfo, songs: [...dateInfo.songs, song] };
@@ -130,7 +142,7 @@ export default function DateDetails() {
     
     await store.addOrUpdateLibrarySong(song);
     
-    setNewSong({ title: '', artist: '', tone: '', version: '', youtubeUrl: '', leadSingerId: '' });
+    setNewSong({ title: '', artist: '', tone: '', version: '', youtubeUrl: '', leadSingerId: '', section: 'GENERAL' });
     setDuplicationWarning([]);
     setShowSuggestions(false);
   };
@@ -200,6 +212,7 @@ export default function DateDetails() {
 
   const handleDrop = async (e: React.DragEvent, dropTargetId: string) => {
     e.preventDefault();
+    e.stopPropagation();
     if (!draggedSongId || draggedSongId === dropTargetId || !canEditSongs) {
       setDraggedSongId(null);
       return;
@@ -209,9 +222,37 @@ export default function DateDetails() {
     const dragIndex = newSongs.findIndex(s => s.id === draggedSongId);
     const dropIndex = newSongs.findIndex(s => s.id === dropTargetId);
     
+    // Update section to match target
+    newSongs[dragIndex].section = newSongs[dropIndex].section || 'GENERAL';
+    
     // Swap or Move (Move is usually better for reordering)
     const [movedElement] = newSongs.splice(dragIndex, 1);
     newSongs.splice(dropIndex, 0, movedElement);
+    
+    const updated = { ...dateInfo, songs: newSongs };
+    await store.updateServiceDate(updated);
+    setDateInfo(updated);
+    setDraggedSongId(null);
+  };
+
+  const handleDropOnSection = async (e: React.DragEvent, sectionId: any) => {
+    e.preventDefault();
+    if (!draggedSongId || !canEditSongs) {
+      setDraggedSongId(null);
+      return;
+    }
+    const newSongs = [...dateInfo.songs];
+    const dragIndex = newSongs.findIndex(s => s.id === draggedSongId);
+    
+    if (newSongs[dragIndex].section === sectionId) {
+       // Dragged to same section but not on a specific element, do nothing or move to end
+       setDraggedSongId(null);
+       return;
+    }
+    
+    const [movedElement] = newSongs.splice(dragIndex, 1);
+    movedElement.section = sectionId;
+    newSongs.push(movedElement);
     
     const updated = { ...dateInfo, songs: newSongs };
     await store.updateServiceDate(updated);
@@ -233,10 +274,23 @@ export default function DateDetails() {
   const cantoresDisponibles = availableUsers.filter(u => u.role === 'CANTOR');
 
   // Cantores that are either the director of the day OR one of the acompanantes
-  const singingTeam = allUsers.filter(u => 
+  const singingTeam = !dateInfo ? [] : allUsers.filter(u => 
     u.id === dateInfo.directorId || 
     dateInfo.acompaniantesIds.includes(u.id)
   );
+
+  const checkOtherMonthUses = (songTitle: string) => {
+    const searchLow = songTitle.trim().toLowerCase();
+    const uses: string[] = [];
+    monthDates.forEach(sd => {
+      if (sd.id !== dateId) {
+        if (sd.songs.some(s => s.title.trim().toLowerCase() === searchLow)) {
+          uses.push(sd.dayName);
+        }
+      }
+    });
+    return uses;
+  };
 
   return (
     <div className="space-y-6 pb-20">
@@ -247,12 +301,21 @@ export default function DateDetails() {
             <ArrowLeft className="w-5 h-5 text-neutral-400" />
           </Link>
           <div>
-            <h2 className="text-2xl font-bold text-white leading-none flex items-center flex-wrap gap-2">
-               {dateInfo.dayName}
-               {dateInfo.songsStatus === 'REVIEW' && <span className="text-xs bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded font-medium border border-orange-500/20">En Revisión</span>}
-               {dateInfo.songsStatus === 'APPROVED' && <span className="text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded font-medium border border-green-500/20">Bosquejo Aprobado</span>}
-            </h2>
-            <p className="text-sm text-neutral-400 mt-1">{dateInfo.dateStr}</p>
+            <div className="flex items-center gap-3 mb-1">
+              <h2 className="text-2xl font-bold text-white leading-none flex items-center flex-wrap gap-2">
+                 {dateInfo.dayName}
+                 {dateInfo.songsStatus === 'REVIEW' && <span className="text-xs bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded font-medium border border-orange-500/20">En Revisión</span>}
+                 {dateInfo.songsStatus === 'APPROVED' && <span className="text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded font-medium border border-green-500/20">Bosquejo Aprobado</span>}
+              </h2>
+              <button 
+                 onClick={() => setShowPreviewModal(true)}
+                 className="bg-neutral-800 hover:bg-neutral-700 text-white p-1.5 rounded-lg transition-colors tooltip tooltip-right shadow-sm border border-neutral-700" 
+                 title="Vista Previa Compacta (WhatsApp)"
+              >
+                  <Eye className="w-4 h-4 text-pink-400" />
+              </button>
+            </div>
+            <p className="text-sm text-neutral-400">{dateInfo.dateStr}</p>
           </div>
         </div>
         
@@ -391,7 +454,6 @@ export default function DateDetails() {
                   </a>
                 )}
              </div>
-
              
              {dateInfo.songs.length === 0 ? (
                <div className="text-center py-16 border-2 border-neutral-800 border-dashed rounded-xl m-2">
@@ -399,96 +461,152 @@ export default function DateDetails() {
                  <p className="text-neutral-400 font-medium tracking-wide">Aún no se añaden canciones a este servicio.</p>
                </div>
              ) : (
-               <div className="space-y-3 flex-1">
-                 {dateInfo.songs.map((song, i) => {
-                   const leadSingerName = allUsers.find(u => u.id === song.leadSingerId)?.name;
-                   const isEditing = editingSongId === song.id;
-                   const isDragging = draggedSongId === song.id;
-                   
-                   if (isEditing) {
-                     return (
-                       <div key={song.id} className="bg-neutral-900 border border-pink-500/50 rounded-xl p-4 animate-fade-in shadow-[0_0_15px_rgba(236,72,153,0.1)]">
-                         <h4 className="text-sm font-semibold text-pink-400 mb-3 flex items-center"><Edit2 className="w-4 h-4 mr-2"/> Editando Canción</h4>
-                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                           <div className="col-span-2">
-                             <input value={editSongData.title} onChange={e => setEditSongData({...editSongData, title: e.target.value})} type="text" className="w-full bg-neutral-950 border border-neutral-700 rounded-md p-2 text-sm text-white focus:border-pink-500" placeholder="Título *" />
-                           </div>
-                           <div className="col-span-2">
-                             <select value={editSongData.leadSingerId || ''} onChange={e => setEditSongData({...editSongData, leadSingerId: e.target.value})} className="w-full bg-neutral-950 border border-neutral-700 rounded-md p-2 text-sm text-pink-200">
-                               <option value="">-- Coro Unísono --</option>
-                               {singingTeam.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-                             </select>
-                           </div>
-                           <div className="col-span-1 md:col-span-1">
-                             <input value={editSongData.tone} onChange={e => setEditSongData({...editSongData, tone: e.target.value})} type="text" className="w-full bg-neutral-950 border border-neutral-700 rounded-md p-2 text-sm text-white font-mono" placeholder="Tono" />
-                           </div>
-                           <div className="col-span-1 md:col-span-1">
-                             <input value={editSongData.artist} onChange={e => setEditSongData({...editSongData, artist: e.target.value})} type="text" className="w-full bg-neutral-950 border border-neutral-700 rounded-md p-2 text-sm text-white" placeholder="Artista" />
-                           </div>
-                           <div className="col-span-1 md:col-span-1 border-t border-neutral-800 md:border-0 pt-2 md:pt-0 col-start-2 md:col-start-4">
-                             <button onClick={() => setEditingSongId(null)} className="w-full mr-2 py-2 text-neutral-400 hover:text-white hover:bg-neutral-800 rounded-lg text-sm font-bold transition-colors">Cancelar</button>
-                           </div>
-                           <div className="col-span-1 md:col-span-4 flex">
-                             <button onClick={handleSaveEdit} className="w-full py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-bold transition-colors flex items-center justify-center"><Save className="w-4 h-4 mr-2"/> Guardar Cambios</button>
-                           </div>
-                         </div>
-                       </div>
-                     );
-                   }
+               <div className="space-y-6 flex-1">
+                 {[
+                   {id: 'ALABANZAS', label: 'Alabanzas'},
+                   {id: 'ADORACIÓN', label: 'Adoración'},
+                   {id: 'OFRENDA', label: 'Ofrenda'},
+                   {id: 'DESPEDIDA', label: 'Despedida'},
+                   {id: 'GENERAL', label: 'General (Sin clasificar)'}
+                 ].map(section => {
+                   const sectionSongs = dateInfo.songs.filter(s => (s.section || 'GENERAL') === section.id);
+                   if (sectionSongs.length === 0 && section.id === 'GENERAL') return null;
 
                    return (
-                   <div 
-                     key={song.id} 
-                     draggable={canEditSongs && !editingSongId}
-                     onDragStart={(e) => handleDragStart(e, song.id)}
-                     onDragOver={handleDragOver}
-                     onDrop={(e) => handleDrop(e, song.id)}
-                     className={`flex flex-col sm:flex-row sm:items-stretch justify-between bg-neutral-950 border rounded-xl overflow-hidden group transition-all duration-200 ${canEditSongs && !editingSongId ? 'cursor-grab active:cursor-grabbing hover:border-pink-500/50' : ''} ${isDragging ? 'opacity-50 ring-2 ring-pink-500 border-pink-500 scale-[0.98]' : 'border-neutral-800'}`}
-                   >
-                      
-                      <div className="flex flex-1">
-                        {/* Number */}
-                        <div className="bg-neutral-900 border-r border-neutral-800 w-12 flex items-center justify-center font-black text-neutral-600 text-lg shrink-0">
-                          {i + 1}
-                        </div>
-                        
-                        {/* Song Info */}
-                        <div className="p-4 flex-1">
-                          <h4 className="text-white font-bold text-xl leading-tight mb-1">{song.title}</h4>
-                          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-2">
-                             {/* Solista Badge */}
-                             <div className="bg-pink-900/40 border border-pink-500/30 text-pink-300 text-xs font-bold px-2.5 py-1 rounded-md flex items-center shadow-inner">
-                                <span className="opacity-70 mr-1.5 uppercase text-[9px] tracking-wider">Voz Lead:</span> {leadSingerName || 'Todos (Coro)'}
+                     <div 
+                       key={section.id} 
+                       onDragOver={handleDragOver}
+                       onDrop={(e) => handleDropOnSection(e, section.id)}
+                       className="bg-neutral-900/50 p-4 rounded-2xl border border-neutral-800 border-dashed"
+                     >
+                       <h4 className="text-sm font-bold text-neutral-400 mb-3 uppercase tracking-widest">{section.label}</h4>
+                       
+                       {sectionSongs.length === 0 ? (
+                         <div className="py-4 text-center text-xs text-neutral-600 bg-neutral-950/50 rounded-lg">Arrastra canciones aquí</div>
+                       ) : (
+                         <div className="space-y-3">
+                           {sectionSongs.map((song) => {
+                             const globalIndex = dateInfo.songs.findIndex(s => s.id === song.id);
+                             const leadSingerName = allUsers.find(u => u.id === song.leadSingerId)?.name;
+                             const isEditing = editingSongId === song.id;
+                             const isDragging = draggedSongId === song.id;
+                             
+                             if (isEditing) {
+                               return (
+                                 <div key={song.id} className="bg-neutral-900 border border-pink-500/50 rounded-xl p-4 animate-fade-in shadow-[0_0_15px_rgba(236,72,153,0.1)]">
+                                   <h4 className="text-sm font-semibold text-pink-400 mb-3 flex items-center"><Edit2 className="w-4 h-4 mr-2"/> Editando Canción</h4>
+                                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                     <div className="col-span-2">
+                                       <label className="text-[10px] uppercase text-neutral-500 font-bold mb-1 block">Título</label>
+                                       <input value={editSongData.title} onChange={e => setEditSongData({...editSongData, title: e.target.value})} type="text" className="w-full bg-neutral-950 border border-neutral-700 rounded-md p-2 text-sm text-white focus:border-pink-500" placeholder="Título *" />
+                                     </div>
+                                     <div className="col-span-2 md:col-span-1">
+                                       <label className="text-[10px] uppercase text-pink-500 font-bold mb-1 block">Sección</label>
+                                       <select value={editSongData.section || 'GENERAL'} onChange={e => setEditSongData({...editSongData, section: e.target.value as any})} className="w-full bg-neutral-950 border border-pink-500/30 rounded-md p-2 text-sm text-pink-100 focus:border-pink-500">
+                                         <option value="GENERAL">General</option>
+                                         <option value="ALABANZAS">Alabanzas</option>
+                                         <option value="ADORACIÓN">Adoración</option>
+                                         <option value="OFRENDA">Ofrenda</option>
+                                         <option value="DESPEDIDA">Despedida</option>
+                                       </select>
+                                     </div>
+                                     <div className="col-span-2 md:col-span-1">
+                                       <label className="text-[10px] uppercase text-neutral-500 font-bold mb-1 block">Líder / Solo</label>
+                                       <select value={editSongData.leadSingerId || ''} onChange={e => setEditSongData({...editSongData, leadSingerId: e.target.value})} className="w-full bg-neutral-950 border border-neutral-700 rounded-md p-2 text-sm text-pink-200">
+                                         <option value="">-- Coro Unísono --</option>
+                                         {singingTeam.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                                       </select>
+                                     </div>
+                                     <div className="col-span-1 md:col-span-1">
+                                       <label className="text-[10px] uppercase text-neutral-500 font-bold mb-1 block">Tono</label>
+                                       <input value={editSongData.tone} onChange={e => setEditSongData({...editSongData, tone: e.target.value})} type="text" className="w-full bg-neutral-950 border border-neutral-700 rounded-md p-2 text-sm text-white font-mono" placeholder="Tono" />
+                                     </div>
+                                     <div className="col-span-1 md:col-span-1">
+                                       <label className="text-[10px] uppercase text-neutral-500 font-bold mb-1 block">Artista</label>
+                                       <input value={editSongData.artist} onChange={e => setEditSongData({...editSongData, artist: e.target.value})} type="text" className="w-full bg-neutral-950 border border-neutral-700 rounded-md p-2 text-sm text-white" placeholder="Artista" />
+                                     </div>
+                                     <div className="col-span-1 md:col-span-1 border-t border-neutral-800 md:border-0 pt-2 md:pt-0 col-start-2 md:col-start-4">
+                                       <button onClick={() => setEditingSongId(null)} className="w-full mr-2 py-2 text-neutral-400 hover:text-white hover:bg-neutral-800 rounded-lg text-sm font-bold transition-colors">Cancelar</button>
+                                     </div>
+                                     <div className="col-span-1 md:col-span-4 flex">
+                                       <button onClick={handleSaveEdit} className="w-full py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-bold transition-colors flex items-center justify-center"><Save className="w-4 h-4 mr-2"/> Guardar Cambios</button>
+                                     </div>
+                                   </div>
+                                 </div>
+                               );
+                             }
+
+                             return (
+                             <div 
+                               key={song.id} 
+                               draggable={canEditSongs && !editingSongId}
+                               onDragStart={(e) => handleDragStart(e, song.id)}
+                               onDragOver={handleDragOver}
+                               onDrop={(e) => { e.stopPropagation(); handleDrop(e, song.id); }}
+                               className={`flex flex-col sm:flex-row sm:items-stretch justify-between bg-neutral-950 border rounded-xl overflow-hidden group transition-all duration-200 ${canEditSongs && !editingSongId ? 'cursor-grab active:cursor-grabbing hover:border-pink-500/50' : ''} ${isDragging ? 'opacity-50 ring-2 ring-pink-500 border-pink-500 scale-[0.98]' : 'border-neutral-800'}`}
+                             >
+                                <div className="flex flex-1">
+                                  {/* Number */}
+                                  <div className="bg-neutral-900 border-r border-neutral-800 w-12 flex items-center justify-center font-black text-neutral-600 text-lg shrink-0">
+                                    {globalIndex + 1}
+                                  </div>
+                                  
+                                  {/* Song Info */}
+                                  <div className="p-4 flex-1">
+                                    <h4 className="text-white font-bold text-xl leading-tight mb-1 flex flex-wrap items-center gap-2">
+                                      {song.title}
+                                      {(() => {
+                                        const otherUses = checkOtherMonthUses(song.title);
+                                        if (otherUses.length > 0) {
+                                          return (
+                                            <span className="text-[10px] font-medium bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 px-2 py-0.5 rounded flex items-center shadow-sm mt-1 sm:mt-0" title="Canción repetida en el mes">
+                                              <AlertTriangle className="w-3 h-3 mr-1 shrink-0" />
+                                              {otherUses.length > 1 ? 'Usada en: ' : 'En '} {otherUses.join(', ')}
+                                            </span>
+                                          )
+                                        }
+                                        return null;
+                                      })()}
+                                    </h4>
+                                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-2">
+                                       {/* Solista Badge */}
+                                       <div className="bg-pink-900/40 border border-pink-500/30 text-pink-300 text-xs font-bold px-2.5 py-1 rounded-md flex items-center shadow-inner">
+                                          <span className="opacity-70 mr-1.5 uppercase text-[9px] tracking-wider">Voz Lead:</span> {leadSingerName || 'Todos (Coro)'}
+                                       </div>
+                                       
+                                       <span className="text-xs bg-neutral-800 text-neutral-300 px-2 py-1 rounded font-mono font-semibold">Tono: <span className="text-white text-sm ml-1">{song.tone}</span></span>
+                                       
+                                       <span className="text-sm text-neutral-500 flex items-center"><span className="w-1.5 h-1.5 rounded-full bg-neutral-700 mr-2"></span>{song.artist}</span>
+                                       {song.version && <span className="text-sm text-neutral-500 flex items-center"><span className="w-1.5 h-1.5 rounded-full bg-neutral-700 mr-2"></span>{song.version}</span>}
+                                    </div>
+                                  </div>
+                                </div>
+                                
+                                {/* Actions */}
+                                <div className="flex items-center sm:border-l border-t sm:border-t-0 p-3 sm:p-4 border-neutral-800 justify-end bg-neutral-950/50 sm:bg-transparent">
+                                  {song.youtubeUrl && (
+                                    <a href={song.youtubeUrl} target="_blank" rel="noreferrer" className="w-10 h-10 flex items-center justify-center bg-red-500/10 text-red-500 rounded-lg hover:bg-red-500/20 transition-colors shrink-0">
+                                       <Play className="w-5 h-5 ml-0.5" /> 
+                                    </a>
+                                  )}
+                                  {canEditSongs && (
+                                    <>
+                                      <button onClick={() => handleStartEdit(song)} className="w-10 h-10 ml-2 flex items-center justify-center text-neutral-500 hover:text-white hover:bg-neutral-800 rounded-lg transition-colors shrink-0 tooltip">
+                                        <Edit2 className="w-4 h-4" />
+                                      </button>
+                                      <button onClick={() => handleDeleteSong(song.id)} className="w-10 h-10 ml-2 flex items-center justify-center text-neutral-500 hover:text-red-400 hover:bg-neutral-800 rounded-lg transition-colors shrink-0">
+                                        <Trash2 className="w-5 h-5" />
+                                      </button>
+                                    </>
+                                  )}
+                                </div>
                              </div>
-                             
-                             <span className="text-xs bg-neutral-800 text-neutral-300 px-2 py-1 rounded font-mono font-semibold">Tono: <span className="text-white text-sm ml-1">{song.tone}</span></span>
-                             
-                             <span className="text-sm text-neutral-500 flex items-center"><span className="w-1.5 h-1.5 rounded-full bg-neutral-700 mr-2"></span>{song.artist}</span>
-                             {song.version && <span className="text-sm text-neutral-500 flex items-center"><span className="w-1.5 h-1.5 rounded-full bg-neutral-700 mr-2"></span>{song.version}</span>}
-                          </div>
-                        </div>
-                      </div>
-                      
-                      {/* Actions */}
-                      <div className="flex items-center sm:border-l border-t sm:border-t-0 p-3 sm:p-4 border-neutral-800 justify-end bg-neutral-950/50 sm:bg-transparent">
-                        {song.youtubeUrl && (
-                          <a href={song.youtubeUrl} target="_blank" rel="noreferrer" className="w-10 h-10 flex items-center justify-center bg-red-500/10 text-red-500 rounded-lg hover:bg-red-500/20 transition-colors shrink-0">
-                             <Play className="w-5 h-5 ml-0.5" /> 
-                          </a>
-                        )}
-                        {canEditSongs && (
-                          <>
-                            <button onClick={() => handleStartEdit(song)} className="w-10 h-10 ml-2 flex items-center justify-center text-neutral-500 hover:text-white hover:bg-neutral-800 rounded-lg transition-colors shrink-0 tooltip">
-                              <Edit2 className="w-4 h-4" />
-                            </button>
-                            <button onClick={() => handleDeleteSong(song.id)} className="w-10 h-10 ml-2 flex items-center justify-center text-neutral-500 hover:text-red-400 hover:bg-neutral-800 rounded-lg transition-colors shrink-0">
-                              <Trash2 className="w-5 h-5" />
-                            </button>
-                          </>
-                        )}
-                      </div>
-                   </div>
-                 )})}
+                           )})}
+                         </div>
+                       )}
+                     </div>
+                   );
+                 })}
                </div>
              )}
 
@@ -533,8 +651,23 @@ export default function DateDetails() {
                        )}
                     </div>
                     
-                    <div className="col-span-2">
-                       <label className="block text-xs text-pink-500 mb-1 font-medium bg-pink-500/5 px-2 rounded-t w-fit">Voz Principal (Solista)</label>
+                    <div className="col-span-2 md:col-span-1">
+                       <label className="block text-xs text-pink-500 mb-1 font-medium bg-pink-500/5 px-2 rounded-t w-fit">Sección Musical</label>
+                       <select 
+                         value={newSong.section || 'GENERAL'} 
+                         onChange={e => setNewSong({...newSong, section: e.target.value as any})} 
+                         className="w-full bg-neutral-900 border border-neutral-700 rounded-md p-2 text-sm text-white focus:outline-none focus:border-pink-500 focus:bg-neutral-950 transition-colors"
+                       >
+                         <option value="GENERAL">General</option>
+                         <option value="ALABANZAS">Alabanzas</option>
+                         <option value="ADORACIÓN">Adoración</option>
+                         <option value="OFRENDA">Ofrenda</option>
+                         <option value="DESPEDIDA">Despedida</option>
+                       </select>
+                    </div>
+
+                    <div className="col-span-2 md:col-span-1">
+                       <label className="block text-xs text-neutral-400 mb-1 font-medium">Voz Principal</label>
                        <select 
                          value={newSong.leadSingerId || ''} 
                          onChange={e => setNewSong({...newSong, leadSingerId: e.target.value})} 
@@ -575,9 +708,87 @@ export default function DateDetails() {
                   </div>
                </div>
              )}
-          </div>
+           </div>
         </div>
       </div>
+     
+      {/* WhatsApp Compact Preview Modal */}
+      {showPreviewModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/85 backdrop-blur-sm text-white">
+          <div className="bg-neutral-950 border border-neutral-800/80 rounded-xl w-full max-w-xs shadow-[0_0_40px_rgba(236,72,153,0.12)] relative overflow-hidden">
+            {/* Close */}
+            <button
+              onClick={() => setShowPreviewModal(false)}
+              className="absolute top-2 right-2 p-1 bg-neutral-900 hover:bg-neutral-800 rounded-full z-10 transition-colors"
+            >
+              <X className="w-3.5 h-3.5 text-neutral-400" />
+            </button>
+
+            {/* Header */}
+            <div className="bg-gradient-to-b from-neutral-900 to-neutral-950 px-4 pt-4 pb-3 border-b border-neutral-800/50">
+              <h3 className="text-base font-black tracking-widest text-white uppercase text-center leading-tight">{dateInfo.dayName}</h3>
+              <p className="text-[10px] text-pink-400/70 font-bold uppercase tracking-widest text-center mt-0.5">{dateInfo.dateStr}</p>
+              <div className="flex justify-center mt-2">
+                <span className="text-[9px] bg-neutral-800 border border-neutral-700/50 text-neutral-400 px-2 py-0.5 rounded-full uppercase font-bold tracking-wider">
+                  Líder: <span className="text-pink-300">{allUsers.find(u => u.id === dateInfo.directorId)?.name || 'Sin asignar'}</span>
+                </span>
+              </div>
+            </div>
+
+            {/* Song list */}
+            <div className="px-3 py-2.5 space-y-3">
+              {[
+                { id: 'ALABANZAS', label: 'Alabanzas' },
+                { id: 'ADORACIÓN', label: 'Adoración' },
+                { id: 'OFRENDA', label: 'Ofrenda' },
+                { id: 'DESPEDIDA', label: 'Despedida' },
+                { id: 'GENERAL', label: 'General' }
+              ]
+                .filter(sec => dateInfo.songs.some(s => (s.section || 'GENERAL') === sec.id))
+                .map(section => {
+                  const sectionSongs = dateInfo.songs.filter(s => (s.section || 'GENERAL') === section.id);
+                  return (
+                    <div key={section.id}>
+                      {/* Section label */}
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-[8px] font-black tracking-[0.15em] text-neutral-600 uppercase shrink-0">{section.label}</span>
+                        <div className="h-px bg-neutral-800 flex-1"></div>
+                      </div>
+                      {/* Songs */}
+                      <div className="space-y-0.5">
+                        {sectionSongs.map((song, i) => {
+                          const singerName = allUsers.find(u => u.id === song.leadSingerId)?.name;
+                          const showSinger = !!song.leadSingerId && song.leadSingerId !== dateInfo.directorId;
+                          return (
+                            <div key={song.id} className="flex items-center justify-between gap-2 px-2 py-1.5 rounded-md hover:bg-neutral-900/60 transition-colors">
+                              <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                                <span className="text-[9px] font-bold text-neutral-700 shrink-0 w-3.5 text-right">{i + 1}.</span>
+                                <div className="min-w-0">
+                                  <span className="font-semibold text-white text-[11px] leading-none block truncate">{song.title}</span>
+                                  {showSinger && (
+                                    <span className="text-[10px] text-pink-400/80 font-medium">↳ {singerName}</span>
+                                  )}
+                                </div>
+                              </div>
+                              <span className="text-[10px] font-mono font-bold text-pink-400 shrink-0 bg-pink-950/40 px-1.5 py-0.5 rounded border border-pink-900/40">
+                                {song.tone}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+
+            {/* Footer count */}
+            <div className="px-4 py-2 border-t border-neutral-800/50 text-center">
+              <span className="text-[9px] text-neutral-600 font-medium">{dateInfo.songs.length} canciones · Asaf Worship</span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

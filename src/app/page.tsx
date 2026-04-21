@@ -47,11 +47,15 @@ export default function LoginPage() {
         setLoading(false);
         return;
       }
-      
+
       // No almacenamos la contraseña en la sesión local
       const { password: _pw, ...safeUser } = foundUser;
       localStorage.setItem('currentUser', JSON.stringify(safeUser));
-      router.push('/dashboard');
+      if (foundUser.role === 'DIRECTOR') {
+        router.push('/dashboard/matrix');
+      } else {
+        router.push('/dashboard');
+      }
     } catch (err) {
       setError('Error de conexión. Intenta de nuevo.');
       setLoading(false);
@@ -115,7 +119,7 @@ export default function LoginPage() {
                 />
               </div>
             </div>
-            
+
             {error && <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/30 p-3 rounded-lg">{error}</p>}
 
             <div>
@@ -131,7 +135,7 @@ export default function LoginPage() {
                 )}
               </button>
             </div>
-            
+
             <div className="mt-4 text-center">
               <p className="text-xs text-neutral-500">Credenciales gestionadas por tu Director</p>
             </div>
