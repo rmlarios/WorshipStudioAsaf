@@ -4,9 +4,10 @@ import { useState, useEffect, useCallback } from 'react';
 import * as store from '../../lib/firebaseStore';
 import { User, ServiceDate, Availability } from '../../lib/types';
 import Link from 'next/link';
-import { ChevronLeft, ChevronRight, CheckCircle2, Circle, CalendarPlus, CalendarDays, Trash2, Loader2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CheckCircle2, Circle, CalendarPlus, CalendarDays, Trash2, Loader2, Eye } from 'lucide-react';
 import { format, addMonths, subMonths, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, getDay } from 'date-fns';
 import { es } from 'date-fns/locale';
+import SetlistPreview from '../../components/SetlistPreview';
 
 export default function Dashboard() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -23,6 +24,7 @@ export default function Dashboard() {
   const [showManualAdd, setShowManualAdd] = useState(false);
   const [manualDate, setManualDate] = useState('');
   const [manualName, setManualName] = useState('');
+  const [previewDate, setPreviewDate] = useState<ServiceDate | null>(null);
 
   useEffect(() => {
     const userStr = localStorage.getItem('currentUser');
@@ -73,66 +75,66 @@ export default function Dashboard() {
     setIsGenerating(true);
     const settings = await store.getSettings();
     if (settings.defaultServiceDays.length === 0) {
-       alert("Por favor configura los días de culto predeterminados (Ej. Martes/Domingos) en Ajustes primero.");
-       setIsGenerating(false);
-       return;
+      alert("Por favor configura los días de culto predeterminados (Ej. Martes/Domingos) en Ajustes primero.");
+      setIsGenerating(false);
+      return;
     }
 
     const start = startOfMonth(currentMonth);
     const end = endOfMonth(currentMonth);
     const monthStr = format(currentMonth, 'yyyy-MM');
     const allDaysInMonth = eachDayOfInterval({ start, end });
-    
+
     const existingDateStrs = serviceDates.map(d => d.dateStr);
 
     let addedCount = 0;
     for (const day of allDaysInMonth) {
-       const wDay = getDay(day);
-       const dayStr = format(day, 'yyyy-MM-dd');
-       
-       if (settings.defaultServiceDays.includes(wDay) && !existingDateStrs.includes(dayStr)) {
-          await store.addServiceDate({
-             month: monthStr,
-             dateStr: dayStr,
-             dayName: format(day, 'EEEE d', { locale: es }).replace(/^\w/, c => c.toUpperCase()),
-             locked: false,
-             acompaniantesIds: [],
-             songs: [],
-             songsStatus: 'DRAFT'
-          });
-          addedCount++;
-       }
+      const wDay = getDay(day);
+      const dayStr = format(day, 'yyyy-MM-dd');
+
+      if (settings.defaultServiceDays.includes(wDay) && !existingDateStrs.includes(dayStr)) {
+        await store.addServiceDate({
+          month: monthStr,
+          dateStr: dayStr,
+          dayName: format(day, 'EEEE d', { locale: es }).replace(/^\w/, c => c.toUpperCase()),
+          locked: false,
+          acompaniantesIds: [],
+          songs: [],
+          songsStatus: 'DRAFT'
+        });
+        addedCount++;
+      }
     }
 
-    setRefresh(r => r+1);
+    setRefresh(r => r + 1);
     setIsGenerating(false);
-    if(addedCount > 0) alert(`Se generaron exitosamente ${addedCount} cultos para este mes.`);
+    if (addedCount > 0) alert(`Se generaron exitosamente ${addedCount} cultos para este mes.`);
   };
 
   const handleManualAddDate = async () => {
-     if(!manualDate) return;
-     const parsed = parseISO(manualDate);
-     const dayName = manualName || format(parsed, 'EEEE d', { locale: es }).replace(/^\w/, c => c.toUpperCase());
-     
-     await store.addServiceDate({
-        month: format(parsed, 'yyyy-MM'),
-        dateStr: manualDate,
-        dayName: dayName,
-        locked: false,
-        acompaniantesIds: [],
-        songs: [],
-        songsStatus: 'DRAFT'
-     });
-     setRefresh(r => r+1);
-     setShowManualAdd(false);
-     setManualName('');
-     setManualDate('');
+    if (!manualDate) return;
+    const parsed = parseISO(manualDate);
+    const dayName = manualName || format(parsed, 'EEEE d', { locale: es }).replace(/^\w/, c => c.toUpperCase());
+
+    await store.addServiceDate({
+      month: format(parsed, 'yyyy-MM'),
+      dateStr: manualDate,
+      dayName: dayName,
+      locked: false,
+      acompaniantesIds: [],
+      songs: [],
+      songsStatus: 'DRAFT'
+    });
+    setRefresh(r => r + 1);
+    setShowManualAdd(false);
+    setManualName('');
+    setManualDate('');
   };
 
   const handleDeleteDate = async (id: string) => {
-    if(confirm("¿Estás seguro de que deseas eliminar este culto?")) {
+    if (confirm("¿Estás seguro de que deseas eliminar este culto?")) {
       await store.deleteServiceDate(id);
-      setRefresh(r => r+1);
+      setRefresh(r => r + 1);
     }
   };
 
@@ -154,41 +156,41 @@ export default function Dashboard() {
       </div>
 
       {currentUser.role === 'DIRECTOR' && (
-         <div className="flex flex-col md:flex-row md:items-center space-y-3 md:space-y-0 md:space-x-3 bg-indigo-500/10 border border-indigo-500/20 p-4 rounded-xl">
-           <button 
-             onClick={handleGenerateMonthDates}
-             disabled={isGenerating}
-             className="flex-1 flex justify-center items-center py-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold text-sm transition-colors shadow-[0_0_15px_rgba(79,70,229,0.3)] disabled:opacity-50"
-           >
-             {isGenerating ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <CalendarDays className="w-5 h-5 mr-2" />}
-             Auto-Generar Mes
-           </button>
-           <button 
-             onClick={() => setShowManualAdd(!showManualAdd)}
-             className="flex-1 flex justify-center items-center py-2 px-4 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 rounded-lg font-bold text-sm transition-colors"
-           >
-             <CalendarPlus className="w-5 h-5 mr-2" />
-             Añadir Culto Individual
-           </button>
-         </div>
+        <div className="flex flex-col md:flex-row md:items-center space-y-3 md:space-y-0 md:space-x-3 bg-indigo-500/10 border border-indigo-500/20 p-4 rounded-xl">
+          <button
+            onClick={handleGenerateMonthDates}
+            disabled={isGenerating}
+            className="flex-1 flex justify-center items-center py-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold text-sm transition-colors shadow-[0_0_15px_rgba(79,70,229,0.3)] disabled:opacity-50"
+          >
+            {isGenerating ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <CalendarDays className="w-5 h-5 mr-2" />}
+            Auto-Generar Mes
+          </button>
+          <button
+            onClick={() => setShowManualAdd(!showManualAdd)}
+            className="flex-1 flex justify-center items-center py-2 px-4 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 rounded-lg font-bold text-sm transition-colors"
+          >
+            <CalendarPlus className="w-5 h-5 mr-2" />
+            Añadir Culto Individual
+          </button>
+        </div>
       )}
 
       {showManualAdd && (
-         <div className="bg-neutral-900 border border-neutral-700 p-5 rounded-2xl animate-fade-in grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="text-sm text-neutral-400 block mb-1">Fecha exacta</label>
-              <input type="date" value={manualDate} onChange={e => setManualDate(e.target.value)} className="w-full bg-neutral-950 border border-neutral-700 text-white rounded-lg p-2" />
-            </div>
-            <div>
-              <label className="text-sm text-neutral-400 block mb-1">Nombre (Opcional)</label>
-              <input type="text" placeholder="Ej. Ayuno General" value={manualName} onChange={e => setManualName(e.target.value)} className="w-full bg-neutral-950 border border-neutral-700 text-white rounded-lg p-2" />
-            </div>
-            <div className="flex items-end">
-              <button onClick={handleManualAddDate} disabled={!manualDate} className="w-full py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg font-bold text-sm disabled:opacity-50 transition-colors">
-                Ingresar Fecha
-              </button>
-            </div>
-         </div>
+        <div className="bg-neutral-900 border border-neutral-700 p-5 rounded-2xl animate-fade-in grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className="text-sm text-neutral-400 block mb-1">Fecha exacta</label>
+            <input type="date" value={manualDate} onChange={e => setManualDate(e.target.value)} className="w-full bg-neutral-950 border border-neutral-700 text-white rounded-lg p-2" />
+          </div>
+          <div>
+            <label className="text-sm text-neutral-400 block mb-1">Nombre (Opcional)</label>
+            <input type="text" placeholder="Ej. Ayuno General" value={manualName} onChange={e => setManualName(e.target.value)} className="w-full bg-neutral-950 border border-neutral-700 text-white rounded-lg p-2" />
+          </div>
+          <div className="flex items-end">
+            <button onClick={handleManualAddDate} disabled={!manualDate} className="w-full py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg font-bold text-sm disabled:opacity-50 transition-colors">
+              Ingresar Fecha
+            </button>
+          </div>
+        </div>
       )}
 
       {loading ? (
@@ -197,7 +199,7 @@ export default function Dashboard() {
         <div className="text-center py-20 bg-neutral-900 rounded-2xl border border-neutral-800 border-dashed">
           <CalendarDays className="w-12 h-12 text-neutral-600 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-white mb-2">No hay cultos programados</h3>
-          <p className="text-sm text-neutral-500 mb-6">El director general aún no ha programado días para {format(currentMonth, 'MMMM yyyy', {locale:es})}.</p>
+          <p className="text-sm text-neutral-500 mb-6">El director general aún no ha programado días para {format(currentMonth, 'MMMM yyyy', { locale: es })}.</p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -214,13 +216,13 @@ export default function Dashboard() {
 
               const availableInThisDate = allAvailabilities.filter(a => a.serviceDateId === date.id && a.available);
               const otherAvailableNames = availableInThisDate
-                 .filter(a => a.userId !== currentUser.id)
-                 .map(a => allUsers.find(u => u.id === a.userId)?.name)
-                 .filter(Boolean);
-              
+                .filter(a => a.userId !== currentUser.id)
+                .map(a => allUsers.find(u => u.id === a.userId && u.role !== 'MUSICO')?.name)
+                .filter(Boolean);
+
               return (
                 <div key={date.id} className="bg-neutral-900 border border-neutral-800 rounded-2xl flex flex-col items-start relative overflow-hidden group hover:border-neutral-700 transition-colors">
-                  
+
                   {date.locked && (
                     <div className="absolute top-0 right-0 bg-red-500 text-white text-[10px] uppercase font-bold px-3 py-1 rounded-bl-lg shadow-md z-10">
                       Cerrado
@@ -235,8 +237,8 @@ export default function Dashboard() {
                   <div className="w-full p-5 flex-1">
                     <div className="flex justify-between items-start">
                       <div>
-                         <p className="text-neutral-400 text-sm">{format(parseISO(date.dateStr), 'dd/MMM/yyyy', { locale: es })}</p>
-                         <h4 className="text-xl font-bold text-white mt-1">{date.dayName}</h4>
+                        <p className="text-neutral-400 text-sm">{format(parseISO(date.dateStr), 'dd/MMM/yyyy', { locale: es })}</p>
+                        <h4 className="text-xl font-bold text-white mt-1">{date.dayName}</h4>
                       </div>
                       {currentUser.role === 'DIRECTOR' && !date.locked && (
                         <button onClick={() => handleDeleteDate(date.id)} className="text-neutral-600 hover:text-red-500 hover:bg-neutral-800 p-2 rounded-lg transition-colors opacity-0 group-hover:opacity-100 hidden md:block">
@@ -246,26 +248,26 @@ export default function Dashboard() {
                     </div>
 
                     <div className="flex flex-wrap gap-2 mt-3 -mx-1">
-                       {isDirectorDia && <span className="bg-yellow-500/20 text-yellow-500 text-xs font-semibold px-2 py-1 rounded">Director del Día</span>}
-                       {isAcompaniante && <span className="bg-pink-500/20 text-pink-400 text-xs font-semibold px-2 py-1 rounded">Acompañante</span>}
-                       {currentUser.role === 'MUSICO' && isAvailable && <span className="bg-blue-500/20 text-blue-400 text-xs font-semibold px-2 py-1 rounded">Músico Conv.</span>}
-                       {(date.songsStatus === 'REVIEW' && currentUser.role === 'DIRECTOR') && (
-                         <span className="bg-indigo-500/20 border border-indigo-500/50 text-indigo-400 animate-pulse text-xs font-semibold px-2 py-1 rounded">Revisar Canciones...</span>
-                       )}
+                      {isDirectorDia && <span className="bg-yellow-500/20 text-yellow-500 text-xs font-semibold px-2 py-1 rounded">Director del Día</span>}
+                      {isAcompaniante && <span className="bg-pink-500/20 text-pink-400 text-xs font-semibold px-2 py-1 rounded">Acompañante</span>}
+                      {currentUser.role === 'MUSICO' && isAvailable && <span className="bg-blue-500/20 text-blue-400 text-xs font-semibold px-2 py-1 rounded">Músico Conv.</span>}
+                      {(date.songsStatus === 'REVIEW' && currentUser.role === 'DIRECTOR') && (
+                        <span className="bg-indigo-500/20 border border-indigo-500/50 text-indigo-400 animate-pulse text-xs font-semibold px-2 py-1 rounded">Revisar Canciones...</span>
+                      )}
                     </div>
 
                     <div className="mt-3 text-[11px] text-neutral-400 bg-neutral-950/50 p-2 rounded-lg border border-neutral-800/50 leading-tight">
-                       {otherAvailableNames.length > 0 ? (
-                          <span><strong className="text-neutral-500">Compañeros Disponibles: </strong> {otherAvailableNames.join(', ')}</span>
-                       ) : (
-                          <span className="italic text-neutral-600">Nadie más ha marcado disponible aún</span>
-                       )}
+                      {otherAvailableNames.length > 0 ? (
+                        <span><strong className="text-neutral-500">Compañeros Disponibles: </strong> {otherAvailableNames.join(', ')}</span>
+                      ) : (
+                        <span className="italic text-neutral-600">Nadie más ha marcado disponible aún</span>
+                      )}
                     </div>
                   </div>
 
                   <div className="w-full mt-auto px-5 pb-5">
                     <div className="flex items-center justify-between border-t border-neutral-800 pt-4">
-                      <button 
+                      <button
                         disabled={date.locked}
                         onClick={() => toggleAvailability(date.id, isAvailable, date.locked)}
                         className={`flex items-center space-x-2 text-sm font-medium transition-colors ${date.locked ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105 active:scale-95'} ${isAvailable ? 'text-green-500' : hasAnswered ? 'text-neutral-500' : 'text-neutral-400'}`}
@@ -274,9 +276,20 @@ export default function Dashboard() {
                         <span>{isAvailable ? 'Disponible' : hasAnswered ? 'No Disp.' : 'Marcar Disp.'}</span>
                       </button>
 
-                      <Link href={`/dashboard/${date.id}`} className="bg-neutral-800 hover:bg-neutral-700 text-white text-xs px-3 py-1.5 rounded-lg font-medium transition-colors border border-neutral-700">
-                        {currentUser.role === 'DIRECTOR' ? 'Administrar' : isDirectorDia ? 'Bosquejo' : 'Ver Detalles'}
-                      </Link>
+                      <div className="flex items-center space-x-2">
+                        {date.songs?.length > 0 && (
+                          <button
+                            onClick={() => setPreviewDate(date)}
+                            className="bg-neutral-800 hover:bg-neutral-700 text-pink-400 p-1.5 rounded-lg transition-colors border border-neutral-700"
+                            title="Vista Previa de Canciones"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                        )}
+                        <Link href={`/dashboard/${date.id}`} className="bg-neutral-800 hover:bg-neutral-700 text-white text-xs px-3 py-1.5 rounded-lg font-medium transition-colors border border-neutral-700">
+                          {currentUser.role === 'DIRECTOR' ? 'Administrar' : isDirectorDia ? 'Bosquejo' : 'Ver Detalles'}
+                        </Link>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -285,6 +298,12 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+
+      <SetlistPreview
+        serviceDate={previewDate}
+        allUsers={allUsers}
+        onClose={() => setPreviewDate(null)}
+      />
     </div>
   );
 }
