@@ -24,6 +24,7 @@ export default function SetlistPreview({ serviceDate, allUsers, onClose, showEdi
   if (!serviceDate) return null;
 
   const directorName = allUsers.find(u => u.id === serviceDate.directorId)?.name || 'Sin asignar';
+  const choirName = allUsers.filter(u => serviceDate.acompaniantesIds.includes(u.id)).map(u => u.name).join(', ') || 'Sin asignar';
   const activeSections = SECTIONS.filter(sec =>
     serviceDate.songs?.some(s => (s.section || 'GENERAL') === sec.id)
   );
@@ -56,6 +57,9 @@ export default function SetlistPreview({ serviceDate, allUsers, onClose, showEdi
           <div className="flex justify-center mt-2">
             <span className="text-[9px] bg-neutral-800 border border-neutral-700/50 text-neutral-400 px-2 py-0.5 rounded-full uppercase font-bold tracking-wider">
               Preside: <span className="text-pink-300">{directorName}</span>
+            </span>
+            <span className="text-[9px] bg-neutral-800 border border-neutral-700/50 text-neutral-400 px-2 py-0.5 rounded-full uppercase font-bold tracking-wider">
+              Coro: <span className="text-pink-300">{choirName}</span>
             </span>
           </div>
         </div>
