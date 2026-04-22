@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manual de Usuario: WorshipStudio Asaf 148</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #ec4899;
+            --primary-hover: #db2777;
+            --bg: #0a0a0a;
+            --card-bg: #171717;
+            --text-main: #e5e5e5;
+            --text-muted: #a3a3a3;
+            --border: #262626;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg);
+            color: var(--text-main);
+            line-height: 1.6;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 60px;
+            padding-bottom: 40px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .logo-container {
+            margin-bottom: 20px;
+        }
+
+        .logo-container img {
+            width: 120px;
+            height: auto;
+            filter: drop-shadow(0 0 15px rgba(236, 72, 153, 0.4));
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            margin-bottom: 10px;
+            background: linear-gradient(to right, #fff, var(--primary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+            letter-spacing: 0.05rem;
+        }
+
+        section {
+            margin-bottom: 80px;
+        }
+
+        h2 {
+            font-size: 1.8rem;
+            color: var(--primary);
+            margin-bottom: 25px;
+            display: flex;
+            align-items: center;
+            border-left: 4px solid var(--primary);
+            padding-left: 15px;
+        }
+
+        p {
+            margin-bottom: 20px;
+            font-size: 1.05rem;
+            color: var(--text-main);
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            transition: transform 0.3s ease, border-color 0.3s ease;
+        }
+
+        .card:hover {
+            border-color: #3b3b3b;
+        }
+
+        .screenshot {
+            width: 100%;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            margin: 20px 0;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+            display: block;
+        }
+
+        .alert {
+            padding: 20px;
+            border-radius: 12px;
+            margin: 20px 0;
+            display: flex;
+            gap: 15px;
+            font-size: 0.95rem;
+        }
+
+        .alert-tip {
+            background-color: rgba(16, 185, 129, 0.1);
+            border-left: 4px solid #10b981;
+            color: #d1fae5;
+        }
+
+        .alert-important {
+            background-color: rgba(239, 68, 68, 0.1);
+            border-left: 4px solid #ef4444;
+            color: #fee2e2;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 25px 0;
+            background: var(--card-bg);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        th, td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th {
+            background-color: rgba(236, 72, 153, 0.05);
+            color: var(--primary);
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.8rem;
+            letter-spacing: 0.1rem;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            background: rgba(236, 72, 153, 0.2);
+            color: var(--primary);
+        }
+
+        footer {
+            text-align: center;
+            padding: 40px 0;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            border-top: 1px solid var(--border);
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .feature-item {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            padding: 20px;
+            border-radius: 15px;
+        }
+
+        .feature-item h3 {
+            color: #fff;
+            margin-bottom: 10px;
+            font-size: 1.1rem;
+        }
+
+        @media (max-width: 768px) {
+            h1 { font-size: 1.8rem; }
+            .container { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo-container">
+                <img src="./public/logo.png" alt="Logo Asaf 148">
+            </div>
+            <h1>Manual de Usuario v2.0</h1>
+            <p class="subtitle">WorshipStudio Asaf 148 – Plataforma de Planificación Musical</p>
+        </header>
+
+        <section id="login">
+            <h2>1. Acceso a la Plataforma</h2>
+            <div class="card">
+                <p>Bienvenido a la nueva interfaz de acceso. Diseñada para ser rápida y segura en cualquier dispositivo.</p>
+                <img src="./public/manual-assets/01_login.png" alt="Login Screenshot" class="screenshot">
+                <div class="alert alert-tip">
+                    <strong>💡 PRO TIP:</strong> Tus credenciales son personales y seguras. Si olvidas tu contraseña, contacta directamente con el Director General.
+                </div>
+            </div>
+        </section>
+
+        <section id="roles">
+            <h2>2. Roles y Responsabilidades</h2>
+            <div class="card">
+                <p>El sistema adapta sus funciones según tu nivel dentro del equipo de alabanza:</p>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Nivel</th>
+                            <th>Usuario</th>
+                            <th>Acciones Principales</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><span class="badge">Director</span></td>
+                            <td>Director General</td>
+                            <td>Gestión total, Matriz de planificación y Miembros.</td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge">Cantor</span></td>
+                            <td>Líder de Alabanza</td>
+                            <td>Armado de setlists, disponibilidad y solistas.</td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge">Músico</span></td>
+                            <td>Apoyo Musical</td>
+                            <td>Consulta de bosquejos y disponibilidad.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="dashboard">
+            <h2>3. Dashboard Central</h2>
+            <div class="card">
+                <p>Gestiona todos los cultos del mes desde un panel centralizado. Visualiza disponibilidad del equipo de un vistazo.</p>
+                <img src="./public/manual-assets/02_dashboard.png" alt="Dashboard Screenshot" class="screenshot">
+                <div class="feature-grid">
+                    <div class="feature-item">
+                        <h3>👁️ Vista Previa Rápida</h3>
+                        <p>Haz clic en el icono del ojo en cualquier tarjeta para ver el setlist sin salir del dashboard.</p>
+                    </div>
+                    <div class="feature-item">
+                        <h3>📤 Exportar PDF/Excel</h3>
+                        <p>Descarga la planificación mensual completa desde el botón central en la cabecera.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="matrix">
+            <h2>4. Matriz de Planificación</h2>
+            <div class="card">
+                <p>La herramienta definitiva para Directores. Controla todo el mes en una sola cuadrícula de alta densidad.</p>
+                <img src="./public/manual-assets/03_matrix.png" alt="Matrix View" class="screenshot">
+                <div class="alert alert-tip">
+                    <strong>📱 ADMINISTRACIÓN:</strong> Puedes asignar roles de Líder o Coro con un solo toque sobre el nombre del miembro.
+                </div>
+                <h3>Editor Masivo (Bulk Editor)</h3>
+                <p>Configura todo un culto en segundos gestionando la asistencia y roles de todo el equipo simultáneamente.</p>
+                <img src="./public/manual-assets/05_bulk_editor.png" alt="Bulk Editor" class="screenshot">
+            </div>
+        </section>
+
+        <section id="preview">
+            <h2>5. Setlist Preview (Premium)</h2>
+            <div class="card">
+                <p>Presentación impecable del bosquejo musical para compartir por WhatsApp o visualizar en el ensayo.</p>
+                <img src="./public/manual-assets/04_preview.png" alt="Preview Modal" class="screenshot">
+                <p>Incluye tonos, artistas asignados y una estética moderna tipo "glassmorphism" que facilita la lectura bajo luces de escenario.</p>
+            </div>
+        </section>
+
+        <section id="best-practices">
+            <h2>6. Buenas Prácticas</h2>
+            <div class="alert alert-important">
+                <strong>⚠️ IMPORTANTE:</strong> Mantén tu disponibilidad actualizada. Evita cambios de última hora una vez que el bosquejo esté en estado <strong>APPROVED</strong>.
+            </div>
+            <p>1. <strong>Confirmación:</strong> Marca tu asistencia en cuanto el Director genere el mes.<br>
+               2. <strong>Estudio:</strong> Usa los enlaces de YouTube para ensayar la versión oficial.<br>
+               3. <strong>Tonos:</strong> Verifica siempre que el tono guardado en el Repertorio sea el que usarás en el servicio.</p>
+        </section>
+
+        <footer>
+            <p>&copy; 2026 WorshipStudio Asaf 148 – Todos los derechos reservados.</p>
+        </footer>
+    </div>
+</body>
+</html>
