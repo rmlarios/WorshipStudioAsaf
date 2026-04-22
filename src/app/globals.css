@@ -29,6 +29,32 @@ button {
   cursor: pointer;
 }
 
-.drop-shadow-\[0_0_10px_rgba\(236\,72\,153\,0\.3\)\] {
-  filter: drop-shadow(0 0 10px rgba(236, 72, 153, 0.3));
+/* Neon Glow Utilities for Matrix View */
+.glow-yellow {
+  box-shadow: 0 0 12px 2px rgba(250, 204, 21, 0.35), inset 0 0 20px rgba(250, 204, 21, 0.12);
 }
+.glow-pink {
+  box-shadow: 0 0 12px 2px rgba(236, 72, 153, 0.35), inset 0 0 20px rgba(236, 72, 153, 0.12);
+}
+.glow-blue {
+  box-shadow: 0 0 12px 2px rgba(59, 130, 246, 0.35), inset 0 0 16px rgba(59, 130, 246, 0.10);
+}
+.glow-green {
+  box-shadow: 0 0 12px 2px rgba(16, 185, 129, 0.35), inset 0 0 16px rgba(16, 185, 129, 0.10);
+}
+.icon-glow-yellow { filter: drop-shadow(0 0 6px rgba(250, 204, 21, 0.9)); }
+.icon-glow-pink   { filter: drop-shadow(0 0 6px rgba(236, 72, 153, 0.9)); }
+.icon-glow-blue   { filter: drop-shadow(0 0 6px rgba(59, 130, 246, 0.9)); }
+.icon-glow-green  { filter: drop-shadow(0 0 6px rgba(16, 185, 129, 0.9)); }
+
+/* Smooth scrollbar for matrix */
+.custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: #3d3d3d; border-radius: 999px; }
+.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #555; }
+
+/* Fade/scale animations */
+@keyframes fade-in  { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes scale-in { from { opacity: 0; transform: scale(0.97); } to { opacity: 1; transform: scale(1); } }
+.animate-fade-in  { animation: fade-in 0.2s ease-out both; }
+.animate-scale-in { animation: scale-in 0.2s ease-out both; }
