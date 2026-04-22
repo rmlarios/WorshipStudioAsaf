@@ -28,3 +28,7 @@ body {
 button {
   cursor: pointer;
 }
+
+.drop-shadow-\[0_0_10px_rgba\(236\,72\,153\,0\.3\)\] {
+  filter: drop-shadow(0 0 10px rgba(236, 72, 153, 0.3));
+}

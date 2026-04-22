@@ -1,4 +1,4 @@
-# WorshipStudio Asaf - Documentación (Wiki)
+# WorshipStudio Asaf 148 - Documentación (Wiki)
 
 Bienvenido a la documentación oficial y bitácora de desarrollo de **WorshipStudio Asaf**. Esta aplicación web nació con la necesidad de simplificar y reemplazar el tedioso flujo de Excel que la iglesia utilizaba mensualmente para planificar a cantores, músicos y armar los setlists bíblicos de adoración.
 
@@ -78,8 +78,21 @@ Bienvenido a la documentación oficial y bitácora de desarrollo de **WorshipStu
 
 ---
 
+### Fase 8: Refactor de Vista Previa, Reportes Centralizados y Pulido UX [COMPLETADO ✅]
+**Objetivo:** Eliminar redundancia de código, unificar la identidad visual y facilitar el acceso a reportes desde cualquier punto clave.
+- **SetlistPreview Reutilizable**: Se extrajo la lógica del modal de "Vista Previa estilo WhatsApp" a un componente independiente y altamente configurable. Ahora, el mismo código renderiza la vista previa en el Dashboard, la Matriz y la pantalla de Detalles, asegurando consistencia total.
+- **Acceso Rápido (Eye Icon)**: Se añadió un botón de "Ojo" directo en las tarjetas del Dashboard. Los miembros pueden ver las canciones y tonos de un culto sin necesidad de entrar a la pantalla de detalles, ahorrando clics.
+- **Estética de Vanguardia**: Refinamiento visual del modal con efectos de *Glassmorphism* (desenfoque de fondo), reflejos metalizados en el encabezado, bordes con brillo tipo *Rim-Light* y animaciones de entrada suaves para una experiencia premium.
+- **Exportación Centralizada**: Toda la lógica de generación de PDF (jsPDF) y Excel (XLSX) fue movida a un utilitario común (`exportUtils.ts`).
+- **Botones de Reporte Everywhere**: Se integraron botones de "Exportar PDF" con indicadores de carga tanto en la cabecera del Dashboard como en la Matriz de Planificación, permitiendo a los Directores descargar el bosquejo oficial desde donde estén trabajando.
+- **Corrección de Timezone**: Se solucionó un bug crítico donde el exportador de reportes mostraba el mes anterior (desfase de -1) debido a la interpretación UTC de JavaScript; ahora se utiliza `parseISO` para garantizar que el mes coincida siempre con el dato local.
+- **Pulido de Identidad**: Actualización de metadatos del sitio (Título ASAF WorshipStudio), integración de logotipo oficial en el login y aplicación de cursor interactivo global en todos los botones para mejorar la respuesta táctil.
+
+---
+
 ## 🚀 Próximos pasos
 1. **Despliegue a Vercel:** Publicar la app en la nube con costo CERO usando `vercel deploy` para que todos en la iglesia accedan desde su celular con una URL real.
-2. **PWA:** Hacer una Web App Progresiva con un `manifest.json` para que iOS / Android ofrezca "Instalar en Escritorio" desde Chrome o Safari.
-3. **Notificaciones:** Implementar alertas (push/email) cuando un bosquejo pase a revisión.
-4. **Auto-Scheduling:** Explorar asignación automática basada en historial de participación y balance de equipo.
+2. **PWA:** Hacer una Web App Progresiva con un `manifest.json` para que iOS / Android ofrezca "Instalar en Escritorio" de forma nativa.
+3. **Notificaciones Push**: Implementar alertas cuando un bosquejo pase de "Borrador" a "Aprobado".
+4. **Roles de Músicos**: Profundizar en la gestión de instrumentos específicos para que el sistema sugiera músicos basados en si falta bajo, batería o piano.
+

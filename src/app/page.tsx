@@ -66,9 +66,13 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-neutral-900 flex flex-col justify-center py-12 sm:px-6 lg:px-8 text-neutral-100 font-sans">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md mt-[-80px]">
-        <h2 className="mt-6 text-center text-4xl font-extrabold tracking-tight text-white mb-2">
-          Worship<span className="text-pink-500">Studio</span> Asaf
+      <div className="sm:mx-auto sm:w-full sm:max-w-md mt-[-80px] flex flex-col items-center drop-shadow-[0_0_15px_rgba(236,72,153,0.3)]">
+        <div className="drop-shadow-[0_0_10px_rgba(236,72,153,0.3)]">
+          <img src="/logo2.png" alt="Logo WorshipStudio Asaf 148" width={300} height={300} className="mb-4" />
+          <h1 className="font-extrabold text-center text-white" style={{ position: 'relative', top: '-55px' }}>148</h1>
+        </div>
+        <h2 className="mt-2 text-center text-4xl font-extrabold tracking-tight text-white mb-2">
+          Worship<span className="text-pink-500">Studio</span> Asaf 148
         </h2>
         <p className="text-center text-sm text-neutral-400">
           Plataforma de asignación musical
