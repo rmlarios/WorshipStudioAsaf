@@ -20,6 +20,10 @@ export default function Dashboard() {
   const [refresh, setRefresh] = useState(0);
   const [loading, setLoading] = useState(true);
 
+  // States for Batch Saving Availability
+  const [pendingChanges, setPendingChanges] = useState<Record<string, boolean>>({});
+  const [isSaving, setIsSaving] = useState(false);
+
   // States for Admin Date Generator
   const [isGenerating, setIsGenerating] = useState(false);
   const [showManualAdd, setShowManualAdd] = useState(false);
@@ -67,10 +71,30 @@ export default function Dashboard() {
     loadData();
   }, [loadData, refresh]);
 
-  const toggleAvailability = async (serviceDateId: string, currentStatus: boolean, locked: boolean) => {
+  const toggleAvailability = (serviceDateId: string, currentStatus: boolean, locked: boolean) => {
     if (locked || !currentUser) return;
-    await store.setAvailability(serviceDateId, currentUser.id, !currentStatus);
-    setRefresh(r => r + 1);
+    setPendingChanges(prev => ({
+      ...prev,
+      [serviceDateId]: !currentStatus
+    }));
+  };
+
+  const saveAllAvailabilities = async () => {
+    if (!currentUser || Object.keys(pendingChanges).length === 0) return;
+    setIsSaving(true);
+    try {
+      const promises = Object.entries(pendingChanges).map(([dateId, available]) =>
+        store.setAvailability(dateId, currentUser.id, available)
+      );
+      await Promise.all(promises);
+      setPendingChanges({});
+      setRefresh(r => r + 1);
+    } catch (err) {
+      console.error("Error saving availabilities:", err);
+      alert("Hubo un error al guardar los cambios.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleGenerateMonthDates = async () => {
@@ -231,8 +255,9 @@ export default function Dashboard() {
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {serviceDates.map(date => {
               const myAvail = availabilities.find(a => a.serviceDateId === date.id);
-              const isAvailable = myAvail?.available === true;
-              const hasAnswered = !!myAvail;
+              const pendingAvail = pendingChanges[date.id];
+              const isAvailable = pendingAvail !== undefined ? pendingAvail : myAvail?.available === true;
+              const hasAnswered = pendingAvail !== undefined ? true : !!myAvail;
 
               const isDirectorDia = date.directorId === currentUser.id;
               const isAcompaniante = date.acompaniantesIds.includes(currentUser.id);
@@ -320,6 +345,20 @@ export default function Dashboard() {
               );
             })}
           </div>
+        </div>
+      )}
+
+      {/* Sticky Save Bar for Batch Availabilities */}
+      {Object.keys(pendingChanges).length > 0 && (
+        <div className="fixed bottom-24 md:bottom-8 left-1/2 -translate-x-1/2 z-50 animate-bounce-in">
+          <button
+            onClick={saveAllAvailabilities}
+            disabled={isSaving}
+            className="bg-pink-600 hover:bg-pink-700 text-white px-6 py-3 rounded-full shadow-lg shadow-pink-500/30 font-bold flex items-center space-x-2 transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
+          >
+            {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle2 className="w-5 h-5" />}
+            <span>Guardar {Object.keys(pendingChanges).length} Cambio{Object.keys(pendingChanges).length > 1 ? 's' : ''}</span>
+          </button>
         </div>
       )}
 
