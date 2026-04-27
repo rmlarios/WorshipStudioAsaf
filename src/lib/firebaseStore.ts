@@ -3,7 +3,14 @@ import {
   collection, doc, getDocs, getDoc, setDoc, updateDoc, deleteDoc,
   query, where, writeBatch, addDoc
 } from 'firebase/firestore';
-import { User, ServiceDate, Availability, Song, LibrarySong, SystemSettings } from './types';
+import { User, ServiceDate, Availability, Song, LibrarySong, SystemSettings, SectionDef } from './types';
+
+const DEFAULT_SECTIONS: SectionDef[] = [
+  { id: 'ALABANZAS', name: 'Alabanzas', active: true },
+  { id: 'ADORACIÓN', name: 'Adoración', active: true },
+  { id: 'OFRENDA', name: 'Ofrenda', active: true },
+  { id: 'DESPEDIDA', name: 'Despedida', active: true }
+];
 
 // Colecciones de Firestore
 const USERS_COL = 'users';
@@ -222,13 +229,30 @@ export async function syncAllSongsToLibrary(): Promise<void> {
 export async function getSettings(): Promise<SystemSettings> {
   const docSnap = await getDoc(doc(firestore, 'settings', 'global'));
   if (docSnap.exists()) {
-    return docSnap.data() as SystemSettings;
+    const data = docSnap.data() as SystemSettings;
+    if (!data.sections || data.sections.length === 0) {
+      data.sections = DEFAULT_SECTIONS;
+      await updateSettings(data);
+    }
+    return data;
   }
-  return { defaultServiceDays: [0, 2] };
+  const defaultSettings: SystemSettings = { defaultServiceDays: [0, 2], sections: DEFAULT_SECTIONS };
+  await setDoc(doc(firestore, 'settings', 'global'), defaultSettings);
+  return defaultSettings;
 }
 
 export async function updateSettings(settings: SystemSettings): Promise<void> {
   await setDoc(doc(firestore, 'settings', 'global'), settings);
+}
+
+export async function isSectionInUse(sectionId: string): Promise<boolean> {
+  const allDates = await getAllServiceDates();
+  for (const date of allDates) {
+    if (date.songs.some(s => s.section === sectionId)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 // --- INTELLIGENCE QUERIES ---
@@ -270,5 +294,5 @@ export async function seedInitialData(): Promise<void> {
   }
 
   // Settings por defecto
-  await setDoc(doc(firestore, 'settings', 'global'), { defaultServiceDays: [0, 2] });
+  await setDoc(doc(firestore, 'settings', 'global'), { defaultServiceDays: [0, 2], sections: DEFAULT_SECTIONS });
 }
