@@ -51,14 +51,10 @@ export default function Dashboard() {
       dates.sort((a, b) => a.dateStr.localeCompare(b.dateStr));
       setServiceDates(dates);
 
-      const myAvails: Availability[] = [];
-      const globalAvails: Availability[] = [];
-      for (const d of dates) {
-        const dAvail = await store.getAvailabilities(d.id);
-        globalAvails.push(...dAvail);
-        const myAvail = dAvail.find(a => a.userId === currentUser.id);
-        if (myAvail) myAvails.push(myAvail);
-      }
+      const dateIds = dates.map(d => d.id);
+      const globalAvails = await store.getAvailabilitiesByDateIds(dateIds);
+      const myAvails = globalAvails.filter(a => a.userId === currentUser.id);
+      
       setAvailabilities(myAvails);
       setAllAvailabilities(globalAvails);
     } catch (err) {
@@ -98,6 +94,11 @@ export default function Dashboard() {
   };
 
   const handleGenerateMonthDates = async () => {
+    if (serviceDates.length > 0) {
+      const confirmGen = confirm("Este mes ya tiene cultos generados. ¿Estás seguro de que deseas auto-generar los días faltantes configurados?");
+      if (!confirmGen) return;
+    }
+
     setIsGenerating(true);
     const settings = await store.getSettings();
     if (settings.defaultServiceDays.length === 0) {
@@ -179,7 +180,15 @@ export default function Dashboard() {
   };
 
   const handleDeleteDate = async (id: string) => {
-    if (confirm("¿Estás seguro de que deseas eliminar este culto?")) {
+    const date = serviceDates.find(d => d.id === id);
+    if (!date) return;
+
+    const hasInfo = date.songs?.length > 0 || date.directorId || date.acompaniantesIds.length > 0;
+    const warning = hasInfo 
+      ? "⚠️ ATENCIÓN: Este culto ya tiene canciones o personal asignado.\n\n¿ESTÁS SEGURO de que deseas eliminarlo? Toda esta información se perderá permanentemente."
+      : "¿Estás seguro de que deseas eliminar este culto?";
+
+    if (confirm(warning)) {
       await store.deleteServiceDate(id);
       setRefresh(r => r + 1);
     }
@@ -217,10 +226,11 @@ export default function Dashboard() {
           <button
             onClick={handleGenerateMonthDates}
             disabled={isGenerating}
-            className="flex-1 flex justify-center items-center py-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold text-sm transition-colors shadow-[0_0_15px_rgba(79,70,229,0.3)] disabled:opacity-50"
+            className={`flex-1 flex justify-center items-center py-2 px-4 rounded-lg font-bold text-sm transition-colors shadow-[0_0_15px_rgba(79,70,229,0.3)] disabled:opacity-50 ${serviceDates.length > 0 ? 'bg-indigo-900/50 text-indigo-300' : 'bg-indigo-600 hover:bg-indigo-700 text-white'}`}
+            title={serviceDates.length > 0 ? "El mes ya contiene cultos. Úsalo solo para añadir días predeterminados faltantes." : "Generar días predeterminados para todo el mes"}
           >
             {isGenerating ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <CalendarDays className="w-5 h-5 mr-2" />}
-            Auto-Generar
+            {serviceDates.length > 0 ? 'Completar Mes' : 'Auto-Generar'}
           </button>
           <button
             onClick={handleNotifyWhatsApp}

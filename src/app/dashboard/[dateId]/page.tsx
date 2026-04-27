@@ -94,7 +94,9 @@ export default function DateDetails() {
   // Directores Generales always can edit if not locked
   // Director del dia can edit ONLY if status is DRAFT (or not set)
   const isStatusReviewOrApproved = dateInfo.songsStatus === 'REVIEW' || dateInfo.songsStatus === 'APPROVED';
-  const canEditSongs = !dateInfo.locked && (isDirectorGeneral || (isDirectorDia && !isStatusReviewOrApproved));
+  // Solo se puede editar si no está bloqueado, TIENE un líder asignado, y los estados lo permiten
+  const hasLeader = !!dateInfo.directorId;
+  const canEditSongs = !dateInfo.locked && hasLeader && (isDirectorGeneral || (isDirectorDia && !isStatusReviewOrApproved));
 
   const handleToggleLock = async () => {
     if (!isDirectorGeneral) return;
@@ -329,9 +331,9 @@ export default function DateDetails() {
         {isDirectorGeneral && (
           <button 
             onClick={handleToggleLock}
-            className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-bold transition-colors w-fit ${dateInfo.locked ? 'bg-red-500/20 text-red-500 border border-red-500/50 hover:bg-red-500/30' : 'bg-neutral-800 text-neutral-300 border border-neutral-700 hover:bg-neutral-700'}`}
+            className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-bold transition-colors w-fit ${dateInfo.locked ? 'bg-neutral-800 text-neutral-300 border border-neutral-700 hover:bg-neutral-700' : 'bg-red-500/20 text-red-500 border border-red-500/50 hover:bg-red-500/30'}`}
           >
-            {dateInfo.locked ? <><Lock className="w-4 h-4"/> <span>Restringir Toda Edición</span></> : <><Unlock className="w-4 h-4"/> <span>Permitir Edición</span></>}
+            {dateInfo.locked ? <><Unlock className="w-4 h-4"/> <span>Permitir Edición</span></> : <><Lock className="w-4 h-4"/> <span>Restringir Toda Edición</span></>}
           </button>
         )}
       </div>
@@ -420,7 +422,14 @@ export default function DateDetails() {
              )}
 
              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-lg font-bold text-white">Bosquejo Musical</h3>
+                <div className="flex items-center gap-3">
+                  <h3 className="text-lg font-bold text-white">Bosquejo Musical</h3>
+                  {!hasLeader && !dateInfo.locked && (
+                    <span className="text-[10px] bg-red-500/10 text-red-400 px-2 py-1 rounded border border-red-500/20 font-medium flex items-center">
+                      <AlertTriangle className="w-3 h-3 mr-1" /> Requiere Líder para Editar
+                    </span>
+                  )}
+                </div>
                 
                 {/* Submit for Review Button (Only for Director del Dia) */}
                 {isDirectorDia && dateInfo.songsStatus === 'DRAFT' && dateInfo.songs.length > 0 && !isDirectorGeneral && (

@@ -69,11 +69,8 @@ export default function MatrixView() {
       const dates = await store.getServiceDatesByMonth(monthStr);
       dates.sort((a, b) => a.dateStr.localeCompare(b.dateStr));
       setServiceDates(dates);
-      const globalAvails: Availability[] = [];
-      for (const d of dates) {
-        const dAvail = await store.getAvailabilities(d.id);
-        globalAvails.push(...dAvail);
-      }
+      const dateIds = dates.map(d => d.id);
+      const globalAvails = await store.getAvailabilitiesByDateIds(dateIds);
       setAvailabilities(globalAvails);
     } catch (err) {
       console.error('Error loading data:', err);

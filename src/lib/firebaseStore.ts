@@ -95,6 +95,24 @@ export async function getAvailabilities(serviceDateId: string): Promise<Availabi
   return snap.docs.map(d => ({ ...d.data(), _docId: d.id } as Availability & { _docId: string }));
 }
 
+export async function getAvailabilitiesByDateIds(dateIds: string[]): Promise<Availability[]> {
+  if (dateIds.length === 0) return [];
+  
+  // Firestore 'in' operator supports up to 30 values.
+  const chunks: string[][] = [];
+  for (let i = 0; i < dateIds.length; i += 30) {
+    chunks.push(dateIds.slice(i, i + 30));
+  }
+
+  const results: Availability[] = [];
+  for (const chunk of chunks) {
+    const q = query(collection(firestore, AVAILABILITIES_COL), where('serviceDateId', 'in', chunk));
+    const snap = await getDocs(q);
+    results.push(...snap.docs.map(d => ({ ...d.data(), _docId: d.id } as Availability & { _docId: string })));
+  }
+  return results;
+}
+
 export async function setAvailability(serviceDateId: string, userId: string, available: boolean): Promise<void> {
   const q = query(
     collection(firestore, AVAILABILITIES_COL),
