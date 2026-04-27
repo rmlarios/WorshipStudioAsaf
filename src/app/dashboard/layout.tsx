@@ -49,7 +49,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <span className="text-xs md:text-sm font-medium">Repertorio</span>
             </Link>
 
-            {currentUser.role === 'DIRECTOR' && (
+            {(currentUser.role === 'DIRECTOR' || currentUser.role === 'VISOR') && (
               <>
                 <Link href="/dashboard/members" className={`flex flex-col md:flex-row items-center space-y-1 md:space-y-0 md:space-x-3 p-2 rounded-lg transition-colors ${pathname === '/dashboard/members' ? 'text-pink-500 md:bg-pink-500/10' : 'text-neutral-400 hover:text-white hover:bg-neutral-800'}`}>
                   <Users className="w-5 h-5" />

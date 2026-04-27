@@ -31,7 +31,7 @@ export default function SettingsPage() {
       const userStr = localStorage.getItem('currentUser');
       if (userStr) {
         const parsedUser = JSON.parse(userStr);
-        if (parsedUser.role !== 'DIRECTOR') {
+        if (parsedUser.role !== 'DIRECTOR' && parsedUser.role !== 'VISOR') {
           router.push('/dashboard');
         } else {
           setCurrentUser(parsedUser);
@@ -98,8 +98,8 @@ export default function SettingsPage() {
                 return (
                   <button
                     key={day.value}
-                    onClick={() => handleToggleDay(day.value)}
-                    className={`px-4 py-2 rounded-lg text-sm font-bold border transition-all ${isSelected ? 'bg-indigo-600 border-indigo-500 text-white shadow-[0_0_15px_rgba(79,70,229,0.3)]' : 'bg-neutral-950 border-neutral-700 text-neutral-400 hover:text-white shadow-none'}`}
+                    onClick={() => { if (currentUser.role === 'DIRECTOR') handleToggleDay(day.value); }}
+                    className={`px-4 py-2 rounded-lg text-sm font-bold border transition-all ${isSelected ? 'bg-indigo-600 border-indigo-500 text-white shadow-[0_0_15px_rgba(79,70,229,0.3)]' : 'bg-neutral-950 border-neutral-700 text-neutral-400 hover:text-white shadow-none'} ${currentUser.role !== 'DIRECTOR' ? 'opacity-70 cursor-not-allowed' : ''}`}
                   >
                     {day.label}
                   </button>
