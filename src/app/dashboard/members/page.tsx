@@ -23,7 +23,7 @@ export default function MembersPage() {
     const userStr = localStorage.getItem('currentUser');
     if (userStr) {
       const parsed = JSON.parse(userStr);
-      if (parsed.role !== 'DIRECTOR') {
+      if (parsed.role !== 'DIRECTOR' && parsed.role !== 'VISOR') {
         router.push('/dashboard');
       } else {
         setCurrentUser(parsed);
@@ -140,7 +140,8 @@ export default function MembersPage() {
   const roleColors: Record<UserRole, string> = {
     'DIRECTOR': 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
     'CANTOR': 'bg-pink-500/20 text-pink-400 border-pink-500/30',
-    'MUSICO': 'bg-blue-500/20 text-blue-400 border-blue-500/30'
+    'MUSICO': 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+    'VISOR': 'bg-neutral-500/20 text-neutral-400 border-neutral-500/30'
   };
 
   return (
@@ -153,10 +154,12 @@ export default function MembersPage() {
           </h2>
           <p className="text-sm text-neutral-400 mt-1">Administra las cuentas de acceso del ministerio de alabanza.</p>
         </div>
-        <button onClick={handleStartAdd} className="bg-pink-600 hover:bg-pink-500 text-white px-4 py-2 rounded-lg font-bold text-sm transition-colors shadow flex items-center shrink-0">
-          <Plus className="w-4 h-4 mr-2" />
-          Nuevo Miembro
-        </button>
+        {currentUser.role === 'DIRECTOR' && (
+          <button onClick={handleStartAdd} className="bg-pink-600 hover:bg-pink-500 text-white px-4 py-2 rounded-lg font-bold text-sm transition-colors shadow flex items-center shrink-0">
+            <Plus className="w-4 h-4 mr-2" />
+            Nuevo Miembro
+          </button>
+        )}
       </div>
 
       {loading ? (
@@ -236,17 +239,19 @@ export default function MembersPage() {
                     </div>
                   </div>
                 </div>
-                <div className="flex space-x-2 shrink-0">
-                  <button onClick={() => handleStartEdit(member)} title="Editar nombre, usuario, contraseña o rol" className="p-2 text-neutral-400 hover:text-white hover:bg-neutral-800 rounded-lg transition-colors">
-                    <Edit2 className="w-4 h-4" />
-                  </button>
-                  <button onClick={() => handleToggleActive(member)} title={member.active ? 'Deshabilitar acceso (no podrá iniciar sesión)' : 'Rehabilitar acceso (podrá entrar de nuevo)'} className={`p-2 rounded-lg transition-colors ${member.active ? 'text-neutral-400 hover:text-red-400 hover:bg-red-500/10' : 'text-green-500 hover:text-green-400 hover:bg-green-500/10'}`}>
-                    {member.active ? <ShieldOff className="w-4 h-4" /> : <ShieldCheck className="w-4 h-4" />}
-                  </button>
-                  <button onClick={() => handleDelete(member)} title="Eliminar permanentemente (solo si no está en cultos ni repertorio)" className="p-2 text-neutral-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
+                {currentUser.role === 'DIRECTOR' && (
+                  <div className="flex space-x-2 shrink-0">
+                    <button onClick={() => handleStartEdit(member)} title="Editar nombre, usuario, contraseña o rol" className="p-2 text-neutral-400 hover:text-white hover:bg-neutral-800 rounded-lg transition-colors">
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                    <button onClick={() => handleToggleActive(member)} title={member.active ? 'Deshabilitar acceso (no podrá iniciar sesión)' : 'Rehabilitar acceso (podrá entrar de nuevo)'} className={`p-2 rounded-lg transition-colors ${member.active ? 'text-neutral-400 hover:text-red-400 hover:bg-red-500/10' : 'text-green-500 hover:text-green-400 hover:bg-green-500/10'}`}>
+                      {member.active ? <ShieldOff className="w-4 h-4" /> : <ShieldCheck className="w-4 h-4" />}
+                    </button>
+                    <button onClick={() => handleDelete(member)} title="Eliminar permanentemente (solo si no está en cultos ni repertorio)" className="p-2 text-neutral-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
               </div>
             );
           })}

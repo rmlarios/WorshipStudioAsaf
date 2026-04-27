@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import * as store from '../../lib/firebaseStore';
 import { User, ServiceDate, Availability } from '../../lib/types';
 import Link from 'next/link';
-import { ChevronLeft, ChevronRight, CheckCircle2, Circle, CalendarPlus, CalendarDays, Trash2, Loader2, Eye, FileText, MessageCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CheckCircle2, Circle, CalendarPlus, CalendarDays, Trash2, Loader2, Eye, FileText, MessageCircle, XCircle } from 'lucide-react';
 import { format, addMonths, subMonths, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, getDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import SetlistPreview from '../../components/SetlistPreview';
@@ -72,7 +72,7 @@ export default function Dashboard() {
   }, [loadData, refresh]);
 
   const toggleAvailability = (serviceDateId: string, currentStatus: boolean, locked: boolean) => {
-    if (locked || !currentUser) return;
+    if (locked || !currentUser || currentUser.role === 'VISOR') return;
     setPendingChanges(prev => ({
       ...prev,
       [serviceDateId]: !currentStatus
@@ -333,12 +333,12 @@ export default function Dashboard() {
                   <div className="w-full mt-auto px-5 pb-5">
                     <div className="flex items-center justify-between border-t border-neutral-800 pt-4">
                       <button
-                        disabled={date.locked}
+                        disabled={date.locked || currentUser.role === 'VISOR'}
                         onClick={() => toggleAvailability(date.id, isAvailable, date.locked)}
-                        className={`flex items-center space-x-2 text-sm font-medium transition-colors ${date.locked ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105 active:scale-95'} ${isAvailable ? 'text-green-500' : hasAnswered ? 'text-neutral-500' : 'text-neutral-400'}`}
+                        className={`flex items-center space-x-2 text-sm font-medium transition-colors ${date.locked || currentUser.role === 'VISOR' ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105 active:scale-95'} ${isAvailable ? 'text-green-500' : 'text-red-500/70'}`}
                       >
-                        {isAvailable ? <CheckCircle2 className="w-5 h-5" /> : <Circle className="w-5 h-5" />}
-                        <span>{isAvailable ? 'Disponible' : hasAnswered ? 'No Disp.' : 'Marcar Disp.'}</span>
+                        {isAvailable ? <CheckCircle2 className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
+                        <span>{isAvailable ? 'Disponible' : 'No Disponible'}</span>
                       </button>
 
                       <div className="flex items-center space-x-2">

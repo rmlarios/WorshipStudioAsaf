@@ -184,8 +184,8 @@ export default function MatrixView() {
   }, [allUsers]);
 
   if (!currentUser) return null;
-  if (currentUser.role !== 'DIRECTOR') {
-    return <div className="p-8 text-center text-white">Acceso Denegado. Solo Directores.</div>;
+  if (currentUser.role !== 'DIRECTOR' && currentUser.role !== 'VISOR') {
+    return <div className="p-8 text-center text-white">Acceso Denegado.</div>;
   }
 
   return (
@@ -256,8 +256,8 @@ export default function MatrixView() {
                         {/* Date header button → opens bulk editor */}
                         <button
                           onClick={() => handleOpenBulk(date)}
-                          disabled={date.locked}
-                          title={date.locked ? undefined : 'Editor Masivo'}
+                          disabled={date.locked || currentUser.role !== 'DIRECTOR'}
+                          title={date.locked || currentUser.role !== 'DIRECTOR' ? undefined : 'Editor Masivo'}
                           className="flex flex-col items-center justify-center px-3 py-2.5 w-full border-b border-neutral-800/40 hover:bg-white/5 transition-colors disabled:opacity-50"
                         >
                           <span className="text-[11px] text-neutral-600 uppercase font-bold tracking-widest mb-1">
@@ -417,21 +417,24 @@ export default function MatrixView() {
                                 </div>
                               );
                             } else {
-                              bgStyle = {};
+                              wrapperClass += " opacity-60";
+                              bgStyle = { background: 'rgba(239,68,68,0.05)' };
                               content = (
-                                <div className="flex flex-col items-center gap-0.5 opacity-20 group-hover/cell:opacity-40 transition-opacity">
-                                  <Minus className="w-4 h-4 text-neutral-500" />
+                                <div className="flex flex-col items-center gap-0.5">
+                                  <X className="w-5 h-5 text-red-500" />
+                                  <span className="text-[8px] text-red-500/70 font-black uppercase tracking-widest">No Disp.</span>
                                 </div>
                               );
                             }
-
-                            if (canAssign && !date.locked) wrapperClass += " cursor-pointer hover:brightness-125 group/cell";
-
+                            
+                            const isEditable = canAssign && !date.locked && currentUser.role === 'DIRECTOR';
+                            if (isEditable) wrapperClass += " cursor-pointer hover:brightness-125 group/cell";
+                            
                             return (
                               <td
                                 key={date.id}
                                 className="p-1 border-r border-neutral-800/20"
-                                onClick={() => { if (canAssign && !date.locked) setSelectedCell({ userId: user.id, dateId: date.id }); }}
+                                onClick={() => { if (isEditable) setSelectedCell({ userId: user.id, dateId: date.id }); }}
                               >
                                 <div className={wrapperClass} style={bgStyle}>
                                   {content}
