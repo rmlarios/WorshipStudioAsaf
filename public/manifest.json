@@ -1,0 +1,21 @@
+{
+  "name": "WorshipStudio Asaf",
+  "short_name": "WS Asaf",
+  "description": "Plataforma de asignación y planificación musical para el ministerio Asaf 148.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a0a",
+  "theme_color": "#0a0a0a",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
