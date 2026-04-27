@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import * as store from '../../lib/firebaseStore';
 import { User, ServiceDate, Availability } from '../../lib/types';
 import Link from 'next/link';
-import { ChevronLeft, ChevronRight, CheckCircle2, Circle, CalendarPlus, CalendarDays, Trash2, Loader2, Eye, FileText } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CheckCircle2, Circle, CalendarPlus, CalendarDays, Trash2, Loader2, Eye, FileText, MessageCircle } from 'lucide-react';
 import { format, addMonths, subMonths, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, getDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import SetlistPreview from '../../components/SetlistPreview';
@@ -137,6 +137,15 @@ export default function Dashboard() {
     if (addedCount > 0) alert(`Se generaron exitosamente ${addedCount} cultos para este mes.`);
   };
 
+  const handleNotifyWhatsApp = () => {
+    const monthName = format(currentMonth, 'MMMM yyyy', { locale: es });
+    const appUrl = window.location.origin + '/dashboard';
+    const message = `¡Hola equipo de Alabanza! 🎵\n\nYa están habilitadas las fechas para el mes de *${monthName.toUpperCase()}*.\n\nPor favor, ingresen a la plataforma y marquen su disponibilidad lo antes posible para que podamos organizar los cultos.\n\n👉 ${appUrl}`;
+    
+    const waLink = `https://wa.me/?text=${encodeURIComponent(message)}`;
+    window.open(waLink, '_blank');
+  };
+
   const handleExportPDF = async () => {
     setIsExporting(true);
     try {
@@ -211,14 +220,21 @@ export default function Dashboard() {
             className="flex-1 flex justify-center items-center py-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold text-sm transition-colors shadow-[0_0_15px_rgba(79,70,229,0.3)] disabled:opacity-50"
           >
             {isGenerating ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <CalendarDays className="w-5 h-5 mr-2" />}
-            Auto-Generar Mes
+            Auto-Generar
+          </button>
+          <button
+            onClick={handleNotifyWhatsApp}
+            className="flex-1 flex justify-center items-center py-2 px-4 bg-green-600 hover:bg-green-700 text-white rounded-lg font-bold text-sm transition-colors shadow-[0_0_15px_rgba(22,163,74,0.3)]"
+          >
+            <MessageCircle className="w-5 h-5 mr-2" />
+            Avisar Equipo
           </button>
           <button
             onClick={() => setShowManualAdd(!showManualAdd)}
             className="flex-1 flex justify-center items-center py-2 px-4 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 rounded-lg font-bold text-sm transition-colors"
           >
             <CalendarPlus className="w-5 h-5 mr-2" />
-            Añadir Culto Individual
+            Día Extra
           </button>
         </div>
       )}
