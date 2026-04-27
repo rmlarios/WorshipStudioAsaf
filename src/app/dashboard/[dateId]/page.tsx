@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import * as store from '../../../lib/firebaseStore';
-import { User, ServiceDate, Availability, Song, LibrarySong } from '../../../lib/types';
+import { User, ServiceDate, Availability, Song, LibrarySong, SystemSettings, SectionDef } from '../../../lib/types';
 import { ArrowLeft, Lock, Unlock, Play, Save, Plus, Trash2, Send, CheckCircle, XCircle, Edit2, AlertTriangle, Loader2, Eye, Smartphone, X } from 'lucide-react';
 import Link from 'next/link';
 import SetlistPreview from '../../../components/SetlistPreview';
@@ -19,11 +19,13 @@ export default function DateDetails() {
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [availabilities, setAvailabilities] = useState<Availability[]>([]);
   const [librarySongs, setLibrarySongs] = useState<LibrarySong[]>([]);
+  const [settings, setSettings] = useState<SystemSettings | null>(null);
   const [refresh, setRefresh] = useState(0);
   const [loading, setLoading] = useState(true);
 
   // New Song form
-  const [newSong, setNewSong] = useState<Partial<Song>>({ title: '', artist: '', tone: '', version: '', youtubeUrl: '', leadSingerId: '', section: 'GENERAL' });
+  const [newSong, setNewSong] = useState<Partial<Song>>({ title: '', artist: '', tone: '', version: '', youtubeUrl: '', leadSingerId: '', section: '' });
+  const [addingInSectionId, setAddingInSectionId] = useState<string | null>(null);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [duplicationWarning, setDuplicationWarning] = useState<string[]>([]);
@@ -54,6 +56,9 @@ export default function DateDetails() {
     if (!currentUser) return;
     setLoading(true);
     try {
+      const s = await store.getSettings();
+      setSettings(s);
+      
       const users = await store.getActiveUsers();
       setAllUsers(users);
       
@@ -124,7 +129,7 @@ export default function DateDetails() {
     setDateInfo(updated);
   };
 
-  const handleAddSong = async () => {
+  const handleAddSong = async (targetSectionId: string) => {
     if (!newSong.title) return;
     const song: Song = {
       id: Math.random().toString(),
@@ -134,7 +139,7 @@ export default function DateDetails() {
       version: newSong.version || '',
       youtubeUrl: newSong.youtubeUrl || '',
       leadSingerId: newSong.leadSingerId || '',
-      section: newSong.section as any || 'GENERAL'
+      section: targetSectionId
     };
     
     const updated = { ...dateInfo, songs: [...dateInfo.songs, song] };
@@ -143,9 +148,10 @@ export default function DateDetails() {
     
     await store.addOrUpdateLibrarySong(song);
     
-    setNewSong({ title: '', artist: '', tone: '', version: '', youtubeUrl: '', leadSingerId: '', section: 'GENERAL' });
+    setNewSong({ title: '', artist: '', tone: '', version: '', youtubeUrl: '', leadSingerId: '', section: '' });
     setDuplicationWarning([]);
     setShowSuggestions(false);
+    setAddingInSectionId(null);
   };
 
   const handleTitleChange = async (val: string) => {
@@ -224,7 +230,7 @@ export default function DateDetails() {
     const dropIndex = newSongs.findIndex(s => s.id === dropTargetId);
     
     // Update section to match target
-    newSongs[dragIndex].section = newSongs[dropIndex].section || 'GENERAL';
+    newSongs[dragIndex].section = newSongs[dropIndex].section || 'OTHER';
     
     // Swap or Move (Move is usually better for reordering)
     const [movedElement] = newSongs.splice(dragIndex, 1);
@@ -236,7 +242,7 @@ export default function DateDetails() {
     setDraggedSongId(null);
   };
 
-  const handleDropOnSection = async (e: React.DragEvent, sectionId: any) => {
+  const handleDropOnSection = async (e: React.DragEvent, sectionId: string) => {
     e.preventDefault();
     if (!draggedSongId || !canEditSongs) {
       setDraggedSongId(null);
@@ -456,22 +462,24 @@ export default function DateDetails() {
                 )}
              </div>
              
-             {dateInfo.songs.length === 0 ? (
-               <div className="text-center py-16 border-2 border-neutral-800 border-dashed rounded-xl m-2">
-                 <Play className="w-10 h-10 text-neutral-700 mx-auto mb-3" />
-                 <p className="text-neutral-400 font-medium tracking-wide">Aún no se añaden canciones a este servicio.</p>
-               </div>
-             ) : (
-               <div className="space-y-6 flex-1">
-                 {[
-                   {id: 'ALABANZAS', label: 'Alabanzas'},
-                   {id: 'ADORACIÓN', label: 'Adoración'},
-                   {id: 'OFRENDA', label: 'Ofrenda'},
-                   {id: 'DESPEDIDA', label: 'Despedida'},
-                   {id: 'GENERAL', label: 'General (Sin clasificar)'}
-                 ].map(section => {
-                   const sectionSongs = dateInfo.songs.filter(s => (s.section || 'GENERAL') === section.id);
-                   if (sectionSongs.length === 0 && section.id === 'GENERAL') return null;
+             <div className="space-y-6 flex-1">
+               {(() => {
+                 const activeSections = settings?.sections?.filter(s => s.active) || [];
+                 const validSectionIds = new Set(activeSections.map(s => s.id));
+                 const hasOrphanSongs = dateInfo.songs.some(s => !s.section || !validSectionIds.has(s.section));
+                 
+                 const sectionsToRender = [...activeSections];
+                 if (hasOrphanSongs) {
+                   sectionsToRender.push({ id: 'OTHER', name: 'Otras / Sin Clasificar', active: true });
+                 }
+
+                 return sectionsToRender.map(section => {
+                   const sectionSongs = dateInfo.songs.filter(s => {
+                     if (section.id === 'OTHER') return !s.section || !validSectionIds.has(s.section);
+                     return s.section === section.id;
+                   });
+
+                   const isAddingHere = addingInSectionId === section.id;
 
                    return (
                      <div 
@@ -480,10 +488,17 @@ export default function DateDetails() {
                        onDrop={(e) => handleDropOnSection(e, section.id)}
                        className="bg-neutral-900/50 p-4 rounded-2xl border border-neutral-800 border-dashed"
                      >
-                       <h4 className="text-sm font-bold text-neutral-400 mb-3 uppercase tracking-widest">{section.label}</h4>
+                       <div className="flex justify-between items-center mb-3">
+                         <h4 className="text-sm font-bold text-neutral-400 uppercase tracking-widest">{section.name}</h4>
+                         {canEditSongs && section.id !== 'OTHER' && !isAddingHere && (
+                           <button onClick={() => setAddingInSectionId(section.id)} className="text-xs flex items-center text-pink-500 hover:text-pink-400 font-bold bg-pink-500/10 hover:bg-pink-500/20 px-2 py-1 rounded transition-colors">
+                             <Plus className="w-3 h-3 mr-1"/> Añadir
+                           </button>
+                         )}
+                       </div>
                        
-                       {sectionSongs.length === 0 ? (
-                         <div className="py-4 text-center text-xs text-neutral-600 bg-neutral-950/50 rounded-lg">Arrastra canciones aquí</div>
+                       {sectionSongs.length === 0 && !isAddingHere ? (
+                         <div className="py-4 text-center text-xs text-neutral-600 bg-neutral-950/50 rounded-lg">Arrastra canciones o añade una nueva</div>
                        ) : (
                          <div className="space-y-3">
                            {sectionSongs.map((song) => {
@@ -503,12 +518,9 @@ export default function DateDetails() {
                                      </div>
                                      <div className="col-span-2 md:col-span-1">
                                        <label className="text-[10px] uppercase text-pink-500 font-bold mb-1 block">Sección</label>
-                                       <select value={editSongData.section || 'GENERAL'} onChange={e => setEditSongData({...editSongData, section: e.target.value as any})} className="w-full bg-neutral-950 border border-pink-500/30 rounded-md p-2 text-sm text-pink-100 focus:border-pink-500">
-                                         <option value="GENERAL">General</option>
-                                         <option value="ALABANZAS">Alabanzas</option>
-                                         <option value="ADORACIÓN">Adoración</option>
-                                         <option value="OFRENDA">Ofrenda</option>
-                                         <option value="DESPEDIDA">Despedida</option>
+                                       <select value={editSongData.section || 'OTHER'} onChange={e => setEditSongData({...editSongData, section: e.target.value})} className="w-full bg-neutral-950 border border-pink-500/30 rounded-md p-2 text-sm text-pink-100 focus:border-pink-500">
+                                         {activeSections.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                         <option value="OTHER">Otras / Sin Clasificar</option>
                                        </select>
                                      </div>
                                      <div className="col-span-2 md:col-span-1">
@@ -570,7 +582,6 @@ export default function DateDetails() {
                                       })()}
                                     </h4>
                                     <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-2">
-                                       {/* Solista Badge */}
                                        <div className="bg-pink-900/40 border border-pink-500/30 text-pink-300 text-xs font-bold px-2.5 py-1 rounded-md flex items-center shadow-inner">
                                           <span className="opacity-70 mr-1.5 uppercase text-[9px] tracking-wider">Voz Lead:</span> {leadSingerName || 'Todos (Coro)'}
                                        </div>
@@ -605,110 +616,98 @@ export default function DateDetails() {
                            )})}
                          </div>
                        )}
+
+                       {/* Inline New Song Form */}
+                       {isAddingHere && (
+                         <div className="mt-4 pt-4 border-t border-neutral-800">
+                           <div className="flex items-center justify-between mb-3">
+                             <h4 className="text-sm font-semibold text-pink-400 flex items-center"><Plus className="w-4 h-4 mr-1"/> Añadir a {section.name}</h4>
+                             <button onClick={() => { setAddingInSectionId(null); setNewSong({ title: '', artist: '', tone: '', version: '', youtubeUrl: '', leadSingerId: '', section: '' }); }} className="text-neutral-500 hover:text-white"><X className="w-4 h-4"/></button>
+                           </div>
+                           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-neutral-950 p-4 rounded-xl border border-pink-500/30 shadow-inner relative">
+                             <div className="col-span-2 relative">
+                               <label className="block text-xs text-neutral-500 mb-1 font-medium">Nombre de la Canción *</label>
+                               <input 
+                                  value={newSong.title} 
+                                  onChange={e => handleTitleChange(e.target.value)} 
+                                  onFocus={() => setShowSuggestions(newSong?.title ? newSong.title.length > 1 : false)}
+                                  onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                                  type="text" 
+                                  className="w-full bg-neutral-900 border border-neutral-700 rounded-md p-2 text-sm text-white focus:outline-none focus:border-pink-500 focus:bg-neutral-950 transition-colors relative z-10" 
+                                  placeholder="Ej. Digno" 
+                                  autoFocus
+                               />
+                               
+                               {showSuggestions && (
+                                  <div className="absolute top-full mt-1 w-full max-h-48 overflow-y-auto bg-neutral-800 border border-neutral-700 rounded-lg shadow-xl z-20 flex flex-col">
+                                     {librarySongs.filter(s => s.title.toLowerCase().includes(newSong.title?.toLowerCase() || '')).map(sugg => (
+                                        <button
+                                          key={sugg.id}
+                                          onClick={(e) => { e.preventDefault(); selectSuggestion(sugg); }}
+                                          className="text-left px-3 py-2 text-sm text-white hover:bg-pink-600 transition-colors border-b border-neutral-700/50 last:border-0 flex justify-between items-center"
+                                        >
+                                          <span className="font-bold">{sugg.title}</span>
+                                          <span className="text-[10px] text-pink-200 capitalize opacity-70">{sugg.artist}</span>
+                                        </button>
+                                     ))}
+                                  </div>
+                               )}
+                               
+                               {duplicationWarning.length > 0 && (
+                                  <div className="mt-2 text-xs text-yellow-500 bg-yellow-500/10 p-2 rounded relative z-0 flex items-start">
+                                     <AlertTriangle className="w-3 h-3 mr-1 mt-0.5 shrink-0" />
+                                     <span>Advertencia: Ya se usó este mes en: <strong>{duplicationWarning.join(', ')}</strong></span>
+                                  </div>
+                               )}
+                             </div>
+                             
+                             <div className="col-span-2 md:col-span-2">
+                               <label className="block text-xs text-neutral-400 mb-1 font-medium">Voz Principal</label>
+                               <select 
+                                 value={newSong.leadSingerId || ''} 
+                                 onChange={e => setNewSong({...newSong, leadSingerId: e.target.value})} 
+                                 className="w-full bg-neutral-900 border border-neutral-700 rounded-md p-2 text-sm text-white focus:outline-none focus:border-pink-500 focus:bg-neutral-950 transition-colors text-pink-100"
+                               >
+                                 <option value="">-- Coro Unísono --</option>
+                                 {singingTeam.map(u => (
+                                    <option key={u.id} value={u.id}>{u.name} {u.id === dateInfo.directorId ? '(Director)' : ''}</option>
+                                 ))}
+                               </select>
+                             </div>
+
+                             <div className="col-span-2 md:col-span-2">
+                               <label className="block text-xs text-neutral-500 mb-1 font-medium">Artista Original</label>
+                               <input value={newSong.artist} onChange={e => setNewSong({...newSong, artist: e.target.value})} type="text" className="w-full bg-neutral-900 border border-neutral-700 rounded-md p-2 text-sm text-white focus:outline-none focus:border-pink-500 focus:bg-neutral-950" placeholder="Ej. Marcos Brunet" />
+                             </div>
+                             
+                             <div className="col-span-1 md:col-span-1">
+                               <label className="block text-xs text-neutral-500 mb-1 font-medium">Tono Base</label>
+                               <input value={newSong.tone} onChange={e => setNewSong({...newSong, tone: e.target.value})} type="text" className="w-full bg-neutral-900 border border-neutral-700 rounded-md p-2 text-sm text-white focus:outline-none focus:border-pink-500 font-mono font-bold" placeholder="Ej. A#" />
+                             </div>
+
+                             <div className="col-span-1 md:col-span-1">
+                               <label className="block text-xs text-neutral-500 mb-1 font-medium">Versión Músical</label>
+                               <input value={newSong.version} onChange={e => setNewSong({...newSong, version: e.target.value})} type="text" className="w-full bg-neutral-900 border border-neutral-700 rounded-md p-2 text-sm text-white focus:outline-none focus:border-pink-500 focus:bg-neutral-950" placeholder="Ej. Acústica" />
+                             </div>
+                             
+                             <div className="col-span-2 md:col-span-3 mt-1">
+                               <label className="block text-xs text-neutral-500 mb-1 font-medium">URL YouTube</label>
+                               <input value={newSong.youtubeUrl} onChange={e => setNewSong({...newSong, youtubeUrl: e.target.value})} type="url" className="w-full bg-neutral-900 border border-neutral-700 rounded-md p-2 text-sm text-white focus:outline-none focus:border-pink-500 focus:bg-neutral-950 text-red-100" placeholder="https://youtube.com/..." />
+                             </div>
+                             
+                             <div className="col-span-2 md:col-span-1 flex items-end mt-1">
+                               <button onClick={() => handleAddSong(section.id)} disabled={!newSong.title} className="w-full py-2 bg-pink-600 hover:bg-pink-700 text-white rounded-lg text-sm font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                                 Guardar
+                               </button>
+                             </div>
+                           </div>
+                         </div>
+                       )}
                      </div>
                    );
-                 })}
-               </div>
-             )}
-
-             {/* Form to add new song */}
-             {canEditSongs && (
-               <div className="mt-8 pt-6 border-t border-neutral-800">
-                  <h4 className="text-sm font-semibold text-pink-400 mb-4 flex items-center"><Plus className="w-4 h-4 mr-1"/> Añadir Canción</h4>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-neutral-950 p-4 rounded-xl border border-neutral-800 shadow-inner">
-                    <div className="col-span-2 relative">
-                       <label className="block text-xs text-neutral-500 mb-1 font-medium">Nombre de la Canción *</label>
-                       <input 
-                          value={newSong.title} 
-                          onChange={e => handleTitleChange(e.target.value)} 
-                          onFocus={() => setShowSuggestions(newSong?.title ? newSong.title.length > 1 : false)}
-                          onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-                          type="text" 
-                          className="w-full bg-neutral-900 border border-neutral-700 rounded-md p-2 text-sm text-white focus:outline-none focus:border-pink-500 focus:bg-neutral-950 transition-colors relative z-10" 
-                          placeholder="Ej. Digno" 
-                       />
-                       
-                       {/* Sugerencias Menu */}
-                       {showSuggestions && (
-                          <div className="absolute top-full mt-1 w-full max-h-48 overflow-y-auto bg-neutral-800 border border-neutral-700 rounded-lg shadow-xl z-20 flex flex-col">
-                             {librarySongs.filter(s => s.title.toLowerCase().includes(newSong.title?.toLowerCase() || '')).map(sugg => (
-                                <button
-                                  key={sugg.id}
-                                  onClick={(e) => { e.preventDefault(); selectSuggestion(sugg); }}
-                                  className="text-left px-3 py-2 text-sm text-white hover:bg-pink-600 transition-colors border-b border-neutral-700/50 last:border-0 flex justify-between items-center"
-                                >
-                                  <span className="font-bold">{sugg.title}</span>
-                                  <span className="text-[10px] text-pink-200 capitalize opacity-70">{sugg.artist}</span>
-                                </button>
-                             ))}
-                          </div>
-                       )}
-                       
-                       {duplicationWarning.length > 0 && (
-                          <div className="mt-2 text-xs text-yellow-500 bg-yellow-500/10 p-2 rounded relative z-0 flex items-start">
-                             <AlertTriangle className="w-3 h-3 mr-1 mt-0.5 shrink-0" />
-                             <span>Advertencia: Ya se usó este mes en: <strong>{duplicationWarning.join(', ')}</strong></span>
-                          </div>
-                       )}
-                    </div>
-                    
-                    <div className="col-span-2 md:col-span-1">
-                       <label className="block text-xs text-pink-500 mb-1 font-medium bg-pink-500/5 px-2 rounded-t w-fit">Sección Musical</label>
-                       <select 
-                         value={newSong.section || 'GENERAL'} 
-                         onChange={e => setNewSong({...newSong, section: e.target.value as any})} 
-                         className="w-full bg-neutral-900 border border-neutral-700 rounded-md p-2 text-sm text-white focus:outline-none focus:border-pink-500 focus:bg-neutral-950 transition-colors"
-                       >
-                         <option value="GENERAL">General</option>
-                         <option value="ALABANZAS">Alabanzas</option>
-                         <option value="ADORACIÓN">Adoración</option>
-                         <option value="OFRENDA">Ofrenda</option>
-                         <option value="DESPEDIDA">Despedida</option>
-                       </select>
-                    </div>
-
-                    <div className="col-span-2 md:col-span-1">
-                       <label className="block text-xs text-neutral-400 mb-1 font-medium">Voz Principal</label>
-                       <select 
-                         value={newSong.leadSingerId || ''} 
-                         onChange={e => setNewSong({...newSong, leadSingerId: e.target.value})} 
-                         className="w-full bg-neutral-900 border border-neutral-700 rounded-md p-2 text-sm text-white focus:outline-none focus:border-pink-500 focus:bg-neutral-950 transition-colors text-pink-100"
-                       >
-                         <option value="">-- Coro Unísono --</option>
-                         {singingTeam.map(u => (
-                            <option key={u.id} value={u.id}>{u.name} {u.id === dateInfo.directorId ? '(Director)' : ''}</option>
-                         ))}
-                       </select>
-                    </div>
-
-                    <div className="col-span-2 md:col-span-1">
-                       <label className="block text-xs text-neutral-500 mb-1 font-medium">Artista Original</label>
-                       <input value={newSong.artist} onChange={e => setNewSong({...newSong, artist: e.target.value})} type="text" className="w-full bg-neutral-900 border border-neutral-700 rounded-md p-2 text-sm text-white focus:outline-none focus:border-pink-500 focus:bg-neutral-950" placeholder="Ej. Marcos Brunet" />
-                    </div>
-                    
-                    <div className="col-span-1 md:col-span-1">
-                       <label className="block text-xs text-neutral-500 mb-1 font-medium">Tono Base</label>
-                       <input value={newSong.tone} onChange={e => setNewSong({...newSong, tone: e.target.value})} type="text" className="w-full bg-neutral-900 border border-neutral-700 rounded-md p-2 text-sm text-white focus:outline-none focus:border-pink-500 font-mono font-bold" placeholder="Ej. A#" />
-                    </div>
-
-                    <div className="col-span-1 md:col-span-2">
-                       <label className="block text-xs text-neutral-500 mb-1 font-medium">Versión Músical (Live, Studio)</label>
-                       <input value={newSong.version} onChange={e => setNewSong({...newSong, version: e.target.value})} type="text" className="w-full bg-neutral-900 border border-neutral-700 rounded-md p-2 text-sm text-white focus:outline-none focus:border-pink-500 focus:bg-neutral-950" placeholder="Ej. Acústica" />
-                    </div>
-                    
-                    <div className="col-span-2 md:col-span-3 mt-1">
-                       <label className="block text-xs text-neutral-500 mb-1 font-medium">URL YouTube de la Canción</label>
-                       <input value={newSong.youtubeUrl} onChange={e => setNewSong({...newSong, youtubeUrl: e.target.value})} type="url" className="w-full bg-neutral-900 border border-neutral-700 rounded-md p-2 text-sm text-white focus:outline-none focus:border-pink-500 focus:bg-neutral-950 text-red-100" placeholder="https://youtube.com/..." />
-                    </div>
-                    
-                    <div className="col-span-2 md:col-span-1 flex items-end mt-1">
-                       <button onClick={handleAddSong} disabled={!newSong.title} className="w-full py-2 bg-pink-600 hover:bg-pink-700 text-white rounded-lg text-sm font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                         Añadir
-                       </button>
-                    </div>
-                  </div>
-               </div>
-             )}
+                 });
+               })()}
+             </div>
            </div>
         </div>
       </div>

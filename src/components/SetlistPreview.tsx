@@ -1,16 +1,10 @@
 "use client";
 
-import { ServiceDate, User } from '../lib/types';
+import { ServiceDate, User, SystemSettings } from '../lib/types';
 import { X } from 'lucide-react';
 import Link from 'next/link';
-
-const SECTIONS = [
-  { id: 'ALABANZAS', label: 'Alabanzas' },
-  { id: 'ADORACIÓN', label: 'Adoración' },
-  { id: 'OFRENDA', label: 'Ofrenda' },
-  { id: 'DESPEDIDA', label: 'Despedida' },
-  { id: 'GENERAL', label: 'General' },
-] as const;
+import { useState, useEffect } from 'react';
+import * as store from '../lib/firebaseStore';
 
 interface SetlistPreviewProps {
   serviceDate: ServiceDate | null;
@@ -21,12 +15,31 @@ interface SetlistPreviewProps {
 }
 
 export default function SetlistPreview({ serviceDate, allUsers, onClose, showEditLink = true }: SetlistPreviewProps) {
+  const [settings, setSettings] = useState<SystemSettings | null>(null);
+
+  useEffect(() => {
+    store.getSettings().then(setSettings);
+  }, []);
+
   if (!serviceDate) return null;
 
   const directorName = allUsers.find(u => u.id === serviceDate.directorId)?.name || 'Sin asignar';
   const choirName = allUsers.filter(u => serviceDate.acompaniantesIds.includes(u.id)).map(u => u.name).join(', ') || 'Sin asignar';
-  const activeSections = SECTIONS.filter(sec =>
-    serviceDate.songs?.some(s => (s.section || 'GENERAL') === sec.id)
+  
+  const activeSections = settings?.sections?.filter(s => s.active) || [];
+  const validSectionIds = new Set(activeSections.map(s => s.id));
+  const hasOrphanSongs = serviceDate.songs?.some(s => !s.section || !validSectionIds.has(s.section));
+  
+  const sectionsToRender = [...activeSections];
+  if (hasOrphanSongs) {
+    sectionsToRender.push({ id: 'OTHER', name: 'Otras / Sin Clasificar', active: true });
+  }
+
+  const sectionsWithSongs = sectionsToRender.filter(sec => 
+    serviceDate.songs?.some(s => {
+      if (sec.id === 'OTHER') return !s.section || !validSectionIds.has(s.section);
+      return s.section === sec.id;
+    })
   );
 
   return (
@@ -73,16 +86,19 @@ export default function SetlistPreview({ serviceDate, allUsers, onClose, showEdi
           {(!serviceDate.songs || serviceDate.songs.length === 0) ? (
             <p className="text-center text-neutral-600 text-xs py-4">No hay canciones en este culto.</p>
           ) : (
-            activeSections.map(section => {
+            sectionsWithSongs.map(section => {
               const sectionSongs = serviceDate.songs.filter(
-                s => (s.section || 'GENERAL') === section.id
+                s => {
+                   if (section.id === 'OTHER') return !s.section || !validSectionIds.has(s.section);
+                   return s.section === section.id;
+                }
               );
               return (
                 <div key={section.id}>
                   {/* Section label */}
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-[8px] font-black tracking-[0.15em] text-neutral-600 uppercase shrink-0">
-                      {section.label}
+                      {section.name}
                     </span>
                     <div className="h-px bg-neutral-800 flex-1"></div>
                   </div>

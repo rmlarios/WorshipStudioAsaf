@@ -9,8 +9,11 @@ export interface User {
   active: boolean;
 }
 
-export type SongSection = 'ALABANZAS' | 'ADORACIÓN' | 'OFRENDA' | 'DESPEDIDA' | 'GENERAL';
-
+export interface SectionDef {
+  id: string;
+  name: string;
+  active: boolean;
+}
 export interface Song {
   id: string;
   title: string;
@@ -19,7 +22,7 @@ export interface Song {
   version: string;
   youtubeUrl: string;
   leadSingerId?: string; // Voice assigned to sing
-  section?: SongSection;
+  section?: string;
 }
 
 // Global Library Song
@@ -62,6 +65,7 @@ export interface Availability {
 
 export interface SystemSettings {
   defaultServiceDays: number[]; // 0 for Sunday, 1 for Monday, etc. Use JS Date day indices.
+  sections?: SectionDef[];
 }
 
 export interface DatabaseSchema {

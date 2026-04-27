@@ -14,7 +14,7 @@ export default function MembersPage() {
 
   // Form states
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [formData, setFormData] = useState<{name: string, emailOrPhone: string, password: string, role: UserRole}>({
+  const [formData, setFormData] = useState<{ name: string, emailOrPhone: string, password: string, role: UserRole }>({
     name: '', emailOrPhone: '', password: '', role: 'CANTOR'
   });
   const [showPassword, setShowPassword] = useState<Record<string, boolean>>({});
@@ -149,8 +149,8 @@ export default function MembersPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-neutral-800 pb-4 gap-4">
         <div>
           <h2 className="text-2xl font-bold text-white flex items-center">
-             <Users className="w-6 h-6 mr-3 text-pink-500" />
-             Miembros del Equipo
+            <Users className="w-6 h-6 mr-3 text-pink-500" />
+            Miembros del Equipo
           </h2>
           <p className="text-sm text-neutral-400 mt-1">Administra las cuentas de acceso del ministerio de alabanza.</p>
         </div>
@@ -166,19 +166,20 @@ export default function MembersPage() {
         <div className="text-center py-20"><Loader2 className="w-8 h-8 animate-spin text-pink-500 mx-auto" /></div>
       ) : (
         <div className="space-y-3">
-          
+
           {/* Add new member form */}
           {editingId === 'new' && (
             <div className="bg-neutral-900 border border-pink-500/50 rounded-xl p-5 shadow-[0_0_15px_rgba(236,72,153,0.1)]">
-              <h4 className="text-sm font-semibold text-pink-400 mb-4 flex items-center"><Plus className="w-4 h-4 mr-2"/> Registrar Nuevo Miembro</h4>
+              <h4 className="text-sm font-semibold text-pink-400 mb-4 flex items-center"><Plus className="w-4 h-4 mr-2" /> Registrar Nuevo Miembro</h4>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                <input value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} type="text" className="bg-neutral-950 border border-neutral-700 rounded-md p-2.5 text-sm text-white focus:border-pink-500" placeholder="Nombre completo *" />
-                <input value={formData.emailOrPhone} onChange={e => setFormData({...formData, emailOrPhone: e.target.value})} type="text" className="bg-neutral-950 border border-neutral-700 rounded-md p-2.5 text-sm text-white focus:border-pink-500" placeholder="Nombre de usuario *" />
-                <input value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} type="text" className="bg-neutral-950 border border-neutral-700 rounded-md p-2.5 text-sm text-white font-mono focus:border-pink-500" placeholder="Contraseña *" />
-                <select value={formData.role} onChange={e => setFormData({...formData, role: e.target.value as UserRole})} className="bg-neutral-950 border border-neutral-700 rounded-md p-2.5 text-sm text-white">
+                <input value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} type="text" className="bg-neutral-950 border border-neutral-700 rounded-md p-2.5 text-sm text-white focus:border-pink-500" placeholder="Nombre completo *" />
+                <input value={formData.emailOrPhone} onChange={e => setFormData({ ...formData, emailOrPhone: e.target.value })} type="text" className="bg-neutral-950 border border-neutral-700 rounded-md p-2.5 text-sm text-white focus:border-pink-500" placeholder="Nombre de usuario *" />
+                <input value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })} type="text" className="bg-neutral-950 border border-neutral-700 rounded-md p-2.5 text-sm text-white font-mono focus:border-pink-500" placeholder="Contraseña *" />
+                <select value={formData.role} onChange={e => setFormData({ ...formData, role: e.target.value as UserRole })} className="bg-neutral-950 border border-neutral-700 rounded-md p-2.5 text-sm text-white">
                   <option value="CANTOR">Cantor</option>
                   <option value="MUSICO">Músico</option>
                   <option value="DIRECTOR">Director</option>
+                  <option value="VISOR">Visor</option>
                 </select>
               </div>
               <div className="flex space-x-2 mt-4 pt-4 border-t border-neutral-800">
@@ -196,15 +197,16 @@ export default function MembersPage() {
             if (isEditing) {
               return (
                 <div key={member.id} className="bg-neutral-900 border border-pink-500/50 rounded-xl p-5 shadow-[0_0_15px_rgba(236,72,153,0.1)]">
-                  <h4 className="text-sm font-semibold text-pink-400 mb-4 flex items-center"><Edit2 className="w-4 h-4 mr-2"/> Editando: {member.name}</h4>
+                  <h4 className="text-sm font-semibold text-pink-400 mb-4 flex items-center"><Edit2 className="w-4 h-4 mr-2" /> Editando: {member.name}</h4>
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                    <input value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} type="text" className="bg-neutral-950 border border-neutral-700 rounded-md p-2.5 text-sm text-white focus:border-pink-500" placeholder="Nombre *" />
-                    <input value={formData.emailOrPhone} onChange={e => setFormData({...formData, emailOrPhone: e.target.value})} type="text" className="bg-neutral-950 border border-neutral-700 rounded-md p-2.5 text-sm text-white focus:border-pink-500" placeholder="Usuario *" />
-                    <input value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} type="text" className="bg-neutral-950 border border-neutral-700 rounded-md p-2.5 text-sm text-white font-mono focus:border-pink-500" placeholder="Contraseña *" />
-                    <select value={formData.role} onChange={e => setFormData({...formData, role: e.target.value as UserRole})} className="bg-neutral-950 border border-neutral-700 rounded-md p-2.5 text-sm text-white">
+                    <input value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} type="text" className="bg-neutral-950 border border-neutral-700 rounded-md p-2.5 text-sm text-white focus:border-pink-500" placeholder="Nombre *" />
+                    <input value={formData.emailOrPhone} onChange={e => setFormData({ ...formData, emailOrPhone: e.target.value })} type="text" className="bg-neutral-950 border border-neutral-700 rounded-md p-2.5 text-sm text-white focus:border-pink-500" placeholder="Usuario *" />
+                    <input value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })} type="text" className="bg-neutral-950 border border-neutral-700 rounded-md p-2.5 text-sm text-white font-mono focus:border-pink-500" placeholder="Contraseña *" />
+                    <select value={formData.role} onChange={e => setFormData({ ...formData, role: e.target.value as UserRole })} className="bg-neutral-950 border border-neutral-700 rounded-md p-2.5 text-sm text-white">
                       <option value="CANTOR">Cantor</option>
                       <option value="MUSICO">Músico</option>
                       <option value="DIRECTOR">Director</option>
+                      <option value="VISOR">Visor</option>
                     </select>
                   </div>
                   <div className="flex space-x-2 mt-4 pt-4 border-t border-neutral-800">
@@ -231,11 +233,11 @@ export default function MembersPage() {
                       {!member.active && <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-red-500/20 text-red-400 border border-red-500/30">Deshabilitado</span>}
                     </div>
                     <div className="flex items-center mt-1">
-                       <span className="text-xs text-neutral-600 mr-1">Clave:</span>
-                       <span className="text-xs text-neutral-400 font-mono">{showPassword[member.id] ? (member.password || '???') : '••••'}</span>
-                       <button onClick={() => setShowPassword(p => ({...p, [member.id]: !p[member.id]}))} className="ml-1 text-neutral-600 hover:text-neutral-400">
-                         {showPassword[member.id] ? <EyeOff className="w-3 h-3"/> : <Eye className="w-3 h-3"/>}
-                       </button>
+                      <span className="text-xs text-neutral-600 mr-1">Clave:</span>
+                      <span className="text-xs text-neutral-400 font-mono">{showPassword[member.id] ? (member.password || '???') : '••••'}</span>
+                      <button onClick={() => setShowPassword(p => ({ ...p, [member.id]: !p[member.id] }))} className="ml-1 text-neutral-600 hover:text-neutral-400">
+                        {showPassword[member.id] ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                      </button>
                     </div>
                   </div>
                 </div>
