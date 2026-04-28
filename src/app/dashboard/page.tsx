@@ -18,6 +18,7 @@ export default function Dashboard() {
   const [allAvailabilities, setAllAvailabilities] = useState<Availability[]>([]);
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [systemSettings, setSystemSettings] = useState<SystemSettings | null>(null);
+  const [hasInitializedMonth, setHasInitializedMonth] = useState(false);
   const [refresh, setRefresh] = useState(0);
   const [loading, setLoading] = useState(true);
 
@@ -47,10 +48,15 @@ export default function Dashboard() {
       const settings = await store.getSettings();
       setSystemSettings(settings);
 
-      // If we haven't manually changed the month and there's a default, use it
-      if (settings.defaultMonth && refresh === 0 && format(currentMonth, 'yyyy-MM') !== settings.defaultMonth) {
-        setCurrentMonth(startOfMonth(parseISO(settings.defaultMonth + "-01")));
+      // Default month initialization: only on mount and if we haven't manually navigated yet
+      if (settings.defaultMonth && !hasInitializedMonth) {
+        const defaultDate = startOfMonth(parseISO(settings.defaultMonth + "-01"));
+        setCurrentMonth(defaultDate);
+        setHasInitializedMonth(true);
+        setLoading(false);
+        return; // Next render will trigger loadData with the correct month
       }
+      setHasInitializedMonth(true);
 
       const users = await store.getActiveUsers();
       setAllUsers(users);
