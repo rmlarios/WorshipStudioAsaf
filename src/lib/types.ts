@@ -67,6 +67,7 @@ export interface Availability {
 export interface SystemSettings {
   defaultServiceDays: number[]; // 0 for Sunday, 1 for Monday, etc. Use JS Date day indices.
   sections?: SectionDef[];
+  defaultMonth?: string; // e.g., '2026-04'
 }
 
 export interface DatabaseSchema {

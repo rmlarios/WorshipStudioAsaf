@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import * as store from '../../lib/firebaseStore';
-import { User, ServiceDate, Availability } from '../../lib/types';
+import { User, ServiceDate, Availability, SystemSettings } from '../../lib/types';
 import Link from 'next/link';
-import { ChevronLeft, ChevronRight, CheckCircle2, Circle, CalendarPlus, CalendarDays, Trash2, Loader2, Eye, FileText, MessageCircle, XCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CheckCircle2, Circle, CalendarPlus, CalendarDays, Trash2, Loader2, Eye, FileText, MessageCircle, XCircle, Star } from 'lucide-react';
 import { format, addMonths, subMonths, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, getDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import SetlistPreview from '../../components/SetlistPreview';
@@ -17,6 +17,7 @@ export default function Dashboard() {
   const [availabilities, setAvailabilities] = useState<Availability[]>([]);
   const [allAvailabilities, setAllAvailabilities] = useState<Availability[]>([]);
   const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [systemSettings, setSystemSettings] = useState<SystemSettings | null>(null);
   const [refresh, setRefresh] = useState(0);
   const [loading, setLoading] = useState(true);
 
@@ -43,6 +44,14 @@ export default function Dashboard() {
     if (!currentUser) return;
     setLoading(true);
     try {
+      const settings = await store.getSettings();
+      setSystemSettings(settings);
+
+      // If we haven't manually changed the month and there's a default, use it
+      if (settings.defaultMonth && refresh === 0 && format(currentMonth, 'yyyy-MM') !== settings.defaultMonth) {
+        setCurrentMonth(startOfMonth(parseISO(settings.defaultMonth + "-01")));
+      }
+
       const users = await store.getActiveUsers();
       setAllUsers(users);
 
@@ -61,7 +70,7 @@ export default function Dashboard() {
       console.error('Error loading data:', err);
     }
     setLoading(false);
-  }, [currentMonth, currentUser]);
+  }, [currentMonth, currentUser, refresh]);
 
   useEffect(() => {
     loadData();
@@ -147,6 +156,18 @@ export default function Dashboard() {
     window.open(waLink, '_blank');
   };
 
+  const handleSetDefaultMonth = async () => {
+    if (!currentUser || currentUser.role !== 'DIRECTOR' || !systemSettings) return;
+    
+    const monthStr = format(currentMonth, 'yyyy-MM');
+    // If it's already default, unmark it. Otherwise, mark it.
+    const newDefault = systemSettings.defaultMonth === monthStr ? undefined : monthStr;
+    
+    const updatedSettings = { ...systemSettings, defaultMonth: newDefault };
+    await store.updateSettings(updatedSettings);
+    setSystemSettings(updatedSettings);
+  };
+
   const handleExportPDF = async () => {
     setIsExporting(true);
     try {
@@ -204,9 +225,22 @@ export default function Dashboard() {
           <ChevronLeft className="w-6 h-6 text-neutral-400" />
         </button>
         <div className="flex flex-col items-center">
-          <h2 className="text-xl font-bold text-white capitalize leading-tight">
-            {format(currentMonth, 'MMMM yyyy', { locale: es })}
-          </h2>
+          <div className="flex items-center space-x-2">
+            <h2 className="text-xl font-bold text-white capitalize leading-tight">
+              {format(currentMonth, 'MMMM yyyy', { locale: es })}
+            </h2>
+            {currentUser.role === 'DIRECTOR' && (
+              <button 
+                onClick={handleSetDefaultMonth}
+                className="transition-all hover:scale-110 active:scale-95"
+                title={systemSettings?.defaultMonth === format(currentMonth, 'yyyy-MM') ? "Quitar como Mes por Defecto" : "Marcar como Mes por Defecto"}
+              >
+                <Star 
+                  className={`w-5 h-5 ${systemSettings?.defaultMonth === format(currentMonth, 'yyyy-MM') ? 'text-yellow-500 fill-yellow-500' : 'text-neutral-600 hover:text-neutral-400'}`} 
+                />
+              </button>
+            )}
+          </div>
           <button 
             onClick={handleExportPDF} 
             disabled={isExporting}

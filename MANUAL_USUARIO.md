@@ -19,8 +19,8 @@ Para ingresar a la plataforma, utiliza las credenciales proporcionadas por tu Di
 
 | Rol | Descripción | Acciones Clave |
 | :--- | :--- | :--- |
-| **DIRECTOR** | Responsable General | Gestión de miembros, Matriz de Planificación, auto-generación de meses, aprobación de setlists y gestión de biblioteca. |
-| **CANTOR** | Líder de Alabanza | Marcar disponibilidad, armar setlists, asignar solistas y visualizar tonos vocales. |
+| **DIRECTOR** | Responsable General | Gestión de miembros, Matriz de Planificación, auto-generación de meses, **aprobación/rechazo** de setlists y gestión de biblioteca. |
+| **CANTOR** | Líder de Alabanza | Marcar disponibilidad, armar setlists (solo si es asignado como Líder), asignar solistas y visualizar tonos vocales. |
 | **MUSICO** | Apoyo Instrumental | Confirmar disponibilidad y estudiar bosquejos aprobados. |
 
 ---
@@ -34,10 +34,26 @@ El panel principal permite gestionar los cultos del mes y acceder rápidamente a
 ### Novedades en el Dashboard:
 - **Vista Previa Rápida (Icono de Ojo)**: Permite abrir el setlist en una ventana emergente sin salir del dashboad.
 - **Exportación Directa**: Botón **"Exportar PDF"** en la cabecera para descargar la planificación mensual en un solo clic.
+- **Banners de Estado**: Ahora las tarjetas muestran claramente si un culto está "Pendiente de Aprobación" (Naranja) o si ha sido "Rechazado" (Rojo).
 
 ---
 
-## 📊 4. Matriz de Planificación (Solo Directores)
+## 🔒 4. Flujo de Trabajo y Aprobación (Nuevo)
+
+Para asegurar el orden y la calidad del repertorio, se ha implementado un flujo de aprobación riguroso:
+
+1.  **Asignación de Líder**: Un Director DEBE asignar a un "Encargado" en la Matriz antes de que se puedan añadir canciones.
+2.  **Armado (Borrador)**: El Líder asignado añade las canciones. Si el setlist fue rechazado previamente, verá un **Banner Rojo** con instrucciones.
+3.  **Revisión**: El Líder envía el setlist a revisión. En este punto, el setlist se **bloquea** para el líder.
+4.  **Aprobación/Rechazo**: El Director revisa. 
+    - Si es **Aprobado**, se publica para todo el equipo.
+    - Si es **Rechazado**, el Director pulsa "Solicitar Cambios", el setlist vuelve a estado Borrador y se desbloquea para que el Líder realice los ajustes necesarios.
+
+> [!IMPORTANT]
+> Los líderes no pueden editar setlists una vez enviados a revisión a menos que el Director los rechace o los devuelva a borrador manualmente.
+---
+
+## 📊 5. Matriz de Planificación (Solo Directores)
 
 La **Matriz de Planificación** es la herramienta maestra para el Director General. Permite una vista panorámica de todo el mes, cruzando cultos con miembros del equipo.
 
@@ -51,7 +67,7 @@ La **Matriz de Planificación** es la herramienta maestra para el Director Gener
 
 ---
 
-## 🎶 5. Vista Previa de Setlist (Estilo WhatsApp)
+## 🎶 6. Vista Previa de Setlist (Estilo WhatsApp)
 
 Hemos rediseñado la vista previa para que sea legible, elegante y fácil de compartir con el equipo.
 
@@ -62,7 +78,7 @@ Hemos rediseñado la vista previa para que sea legible, elegante y fácil de com
 
 ---
 
-## 📚 6. Repertorio Inteligente
+## 📚 7. Repertorio Inteligente
 
 El módulo de **Repertorio** almacena el historial de todas las canciones usadas en la iglesia.
 - **Cruce de Tonos**: Consulta qué tono le queda mejor a cada cantante.
@@ -70,7 +86,7 @@ El módulo de **Repertorio** almacena el historial de todas las canciones usadas
 
 ---
 
-## 📤 7. Exportación y Reportes
+## 📤 8. Exportación y Reportes
 
 Ahora puedes exportar la planificación en dos formatos desde múltiples puntos de la app:
 1.  **PDF Estilizado**: Ideal para imprimir o compartir como documento oficial.
@@ -78,7 +94,7 @@ Ahora puedes exportar la planificación en dos formatos desde múltiples puntos 
 
 ---
 
-## ✨ 8. Buenas Prácticas
+## ✨ 9. Buenas Prácticas
 
 1.  **Confirmación Temprana**: Marca tu disponibilidad en los primeros días del mes.
 2.  **Revisión de Tonos**: Asegúrate de que el tono en el setlist sea el correcto para el solista asignado.

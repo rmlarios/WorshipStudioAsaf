@@ -3,8 +3,8 @@
 import { useState, useEffect, useCallback, useMemo, Fragment } from 'react';
 import Link from 'next/link';
 import * as store from '../../../lib/firebaseStore';
-import { User, ServiceDate, Availability } from '../../../lib/types';
-import { ChevronLeft, ChevronRight, Check, X, Crown, Mic2, Minus, Loader2, AlertTriangle, Music, Eye, FileText, CheckCircle2 } from 'lucide-react';
+import { User, ServiceDate, Availability, SystemSettings } from '../../../lib/types';
+import { ChevronLeft, ChevronRight, Check, X, Crown, Mic2, Minus, Loader2, AlertTriangle, Music, Eye, FileText, CheckCircle2, Star } from 'lucide-react';
 import { format, addMonths, subMonths, parseISO, startOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import SetlistPreview from '../../../components/SetlistPreview';
@@ -41,9 +41,11 @@ export default function MatrixView() {
   const [serviceDates, setServiceDates] = useState<ServiceDate[]>([]);
   const [availabilities, setAvailabilities] = useState<Availability[]>([]);
   const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [systemSettings, setSystemSettings] = useState<SystemSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedCell, setSelectedCell] = useState<{ userId: string, dateId: string } | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [hasInitializedMonth, setHasInitializedMonth] = useState(false);
 
   interface BulkState {
     availabilities: Record<string, boolean>;
@@ -63,6 +65,18 @@ export default function MatrixView() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
+      const settings = await store.getSettings();
+      setSystemSettings(settings);
+
+      // Default month initialization
+      if (settings.defaultMonth && !hasInitializedMonth && format(currentMonth, 'yyyy-MM') !== settings.defaultMonth) {
+        setCurrentMonth(startOfMonth(parseISO(settings.defaultMonth + "-01")));
+        setHasInitializedMonth(true);
+        setLoading(false);
+        return; // Next render will trigger loadData again with correct month
+      }
+      setHasInitializedMonth(true);
+
       const users = await store.getActiveUsers();
       setAllUsers(users);
       const monthStr = format(currentMonth, 'yyyy-MM');
@@ -76,7 +90,7 @@ export default function MatrixView() {
       console.error('Error loading data:', err);
     }
     setLoading(false);
-  }, [currentMonth]);
+  }, [currentMonth, hasInitializedMonth]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -172,6 +186,17 @@ export default function MatrixView() {
     setIsExporting(false);
   };
 
+  const handleSetDefaultMonth = async () => {
+    if (!currentUser || currentUser.role !== 'DIRECTOR' || !systemSettings) return;
+    
+    const monthStr = format(currentMonth, 'yyyy-MM');
+    const newDefault = systemSettings.defaultMonth === monthStr ? undefined : monthStr;
+    
+    const updatedSettings = { ...systemSettings, defaultMonth: newDefault };
+    await store.updateSettings(updatedSettings);
+    setSystemSettings(updatedSettings);
+  };
+
   const groupedUsers = useMemo(() => {
     return [
       { role: 'Directores', users: allUsers.filter(u => u.role === 'DIRECTOR') },
@@ -198,9 +223,22 @@ export default function MatrixView() {
         </button>
 
         <div className="text-center">
-          <h2 className="text-xl font-extrabold text-white capitalize tracking-tight">
-            {format(currentMonth, 'MMMM yyyy', { locale: es })}
-          </h2>
+          <div className="flex items-center justify-center gap-2">
+            <h2 className="text-xl font-extrabold text-white capitalize tracking-tight">
+              {format(currentMonth, 'MMMM yyyy', { locale: es })}
+            </h2>
+            {currentUser.role === 'DIRECTOR' && (
+              <button 
+                onClick={handleSetDefaultMonth}
+                className="transition-all hover:scale-110 active:scale-95"
+                title={systemSettings?.defaultMonth === format(currentMonth, 'yyyy-MM') ? "Quitar como Mes por Defecto" : "Marcar como Mes por Defecto"}
+              >
+                <Star 
+                  className={`w-4 h-4 ${systemSettings?.defaultMonth === format(currentMonth, 'yyyy-MM') ? 'text-yellow-500 fill-yellow-500' : 'text-neutral-600 hover:text-neutral-400'}`} 
+                />
+              </button>
+            )}
+          </div>
           <div className="flex items-center justify-center gap-3 mt-1">
             <p className="text-neutral-500 uppercase tracking-widest font-semibold">Matriz de Planificación</p>
             <span className="w-1 h-1 bg-neutral-700 rounded-full" />

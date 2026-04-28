@@ -1,7 +1,7 @@
 import { firestore } from './firebase';
 import { 
   collection, doc, getDocs, getDoc, setDoc, updateDoc, deleteDoc,
-  query, where, writeBatch, addDoc
+  query, where, writeBatch, addDoc, onSnapshot
 } from 'firebase/firestore';
 import { User, ServiceDate, Availability, Song, LibrarySong, SystemSettings, SectionDef } from './types';
 
@@ -85,6 +85,13 @@ export async function deleteServiceDate(serviceDateId: string): Promise<void> {
   const batch = writeBatch(firestore);
   snap.docs.forEach(d => batch.delete(d.ref));
   await batch.commit();
+}
+
+export function subscribeToPendingReviews(callback: (count: number) => void) {
+  const q = query(collection(firestore, SERVICE_DATES_COL), where('songsStatus', '==', 'REVIEW'));
+  return onSnapshot(q, (snap) => {
+    callback(snap.size);
+  });
 }
 
 // --- AVAILABILITIES ---

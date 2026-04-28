@@ -108,9 +108,34 @@ Bienvenido a la documentación oficial y bitácora de desarrollo de **WorshipStu
 
 ---
 
+### Fase 10: Optimización de Rendimiento, Seguridad y Flujo de Aprobación Refinado [COMPLETADO ✅]
+**Objetivo:** Fortalecer la integridad de los datos, optimizar la carga en servidores y dotar al Director de herramientas de control granulares para el ciclo de vida del setlist.
+
+- **Optimización de Consultas (N+1)**: Se rediseñó la lógica de obtención de datos en el Dashboard y la Matrix View. Ahora, las disponibilidades de todos los miembros se consolidan en una sola petición por mes, reduciendo drásticamente el uso de recursos de Firestore y acelerando el tiempo de carga de la interfaz.
+- **Protección de "Auto-Generate"**: Se implementó un sistema de verificación que detecta si ya existen registros previos antes de generar las fechas predeterminadas del mes. Esto evita que el Director sobrescriba accidentalmente una planificación ya iniciada.
+- **Seguridad y Control de Edición**: 
+  - Se introdujo la obligatoriedad de asignar un **Líder (Encargado)** antes de permitir la edición de canciones. Si un culto no tiene líder, el acceso al setlist permanece bloqueado para prevenir registros huérfanos.
+  - **Bloqueo Administrativo**: Una vez que un setlist entra en estado `REVIEW` (Revisión) o `APPROVED` (Aprobado), la edición se bloquea para el líder y solo el Director puede realizar modificaciones finales o liberar el bloqueo.
+- **Flujo de Rechazo y "wasRejected"**:
+  - Los Directores ahora pueden "Rechazar" o "Solicitar Cambios" en un setlist con un clic. Esto devuelve el estado a `DRAFT` y marca el registro con una bandera `wasRejected`.
+  - El Líder recibe una alerta visual inmediata (banner rojo) en su vista de edición, indicando que se requieren ajustes antes de volver a enviar a revisión.
+- **Banners de Estado Semánticos**: El Dashboard ahora utiliza colores y mensajes específicos para indicar visualmente el estado de cada servicio (Ej: Rojo para *Rechazado*, Naranja para *Pendiente de Aprobación*, Azul para *Borrador*).
+
+---
+
+### Fase 11: Despliegue en la Nube y Mobile Experience (PWA) [COMPLETADO ✅]
+**Objetivo:** Garantizar la accesibilidad global de la plataforma y permitir una experiencia de "App Nativa" en dispositivos móviles.
+
+- **Despliegue en Vercel**: La aplicación ya se encuentra publicada y operativa en la nube de Vercel, permitiendo el acceso multiusuario en tiempo real sin dependencia de servidores locales.
+- **Implementación de PWA**:
+  - Se generó el archivo `manifest.json` configurado para el branding **Asaf 148**.
+  - La plataforma ahora soporta el modo `standalone`, lo que permite a los usuarios de Android e iOS "Instalar" la aplicación en su pantalla de inicio como si fuera una app nativa, eliminando la barra de navegación del explorador para una experiencia inmersiva.
+  - Iconografía optimizada (`192x192` y `512x512`) basada en el logotipo oficial.
+
+---
+
 ## 🚀 Próximos pasos
-1. **Despliegue a Vercel:** Publicar la app en la nube con costo CERO usando `vercel deploy` para que todos en la iglesia accedan desde su celular con una URL real.
-2. **PWA:** Hacer una Web App Progresiva con un `manifest.json` para que iOS / Android ofrezca "Instalar en Escritorio" de forma nativa.
-3. **Notificaciones Push**: Implementar alertas cuando un bosquejo pase de "Borrador" a "Aprobado".
-4. **Roles de Músicos**: Profundizar en la gestión de instrumentos específicos para que el sistema sugiera músicos basados en si falta bajo, batería o piano.
+1. **Notificaciones Push**: Implementar alertas cuando un bosquejo pase de "Borrador" a "Aprobado".
+2. **Roles de Músicos**: Profundizar en la gestión de instrumentos específicos para que el sistema sugiera músicos basados en si falta bajo, batería o piano.
+3. **Modo Offline**: Mejorar el service worker para permitir la consulta de canciones guardadas sin conexión a internet.
 
