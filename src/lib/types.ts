@@ -55,6 +55,7 @@ export interface ServiceDate {
   songs: Song[];
   songsStatus?: SongsStatus; 
   playlistUrl?: string;
+  wasRejected?: boolean;
 }
 
 export interface Availability {

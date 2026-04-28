@@ -100,13 +100,29 @@ export default function DateDetails() {
 
   const handleToggleLock = async () => {
     if (!isDirectorGeneral) return;
-    const updated = { ...dateInfo, locked: !dateInfo.locked };
+
+    let updatedStatus = dateInfo.songsStatus;
+    // Sincronización: Al desbloquear un culto en Revisión/Aprobado, regresa a Borrador para permitir edición real
+    if (dateInfo.locked && (dateInfo.songsStatus === 'APPROVED' || dateInfo.songsStatus === 'REVIEW')) {
+      if (confirm("Este bosquejo estaba en Revisión o Aprobado. Al permitir la edición, regresará a 'Borrador' para que el Líder pueda modificarlo. ¿Continuar?")) {
+        updatedStatus = 'DRAFT';
+      } else {
+        return; // El usuario canceló la acción de desbloqueo
+      }
+    }
+
+    const updated = { ...dateInfo, locked: !dateInfo.locked, songsStatus: updatedStatus, wasRejected: false };
     await store.updateServiceDate(updated);
     setDateInfo(updated);
   };
 
-  const handleChangeStatus = async (newStatus: 'DRAFT' | 'REVIEW' | 'APPROVED') => {
+  const handleChangeStatus = async (newStatus: 'DRAFT' | 'REVIEW' | 'APPROVED', isReject: boolean = false) => {
     const updated = { ...dateInfo, songsStatus: newStatus };
+    if (isReject) {
+      updated.wasRejected = true;
+    } else if (newStatus === 'REVIEW') {
+      updated.wasRejected = false;
+    }
     await store.updateServiceDate(updated);
     setDateInfo(updated);
   };
@@ -416,9 +432,20 @@ export default function DateDetails() {
                    </div>
                    <div className="flex space-x-2 w-full sm:w-auto">
                      <button onClick={() => handleChangeStatus('APPROVED')} className="flex-1 sm:flex-none bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded-lg font-bold text-sm transition-colors shadow">Aprobar</button>
-                     <button onClick={() => handleChangeStatus('DRAFT')} className="flex-1 sm:flex-none bg-neutral-800 hover:bg-neutral-700 text-white px-4 py-2 rounded-lg font-bold text-sm transition-colors border border-neutral-700">Devolver</button>
+                     <button onClick={() => handleChangeStatus('DRAFT', true)} className="flex-1 sm:flex-none bg-neutral-800 hover:bg-neutral-700 text-white px-4 py-2 rounded-lg font-bold text-sm transition-colors border border-neutral-700">Rechazar / Pedir Cambios</button>
                    </div>
                 </div>
+             )}
+
+             {/* Rejected Banner for Leader */}
+             {dateInfo.wasRejected && dateInfo.songsStatus === 'DRAFT' && isDirectorDia && (
+               <div className="mb-6 bg-red-500/10 border border-red-500/30 rounded-xl p-4 flex items-center gap-3">
+                 <AlertTriangle className="w-5 h-5 text-red-500 shrink-0" />
+                 <div>
+                   <h4 className="text-red-400 font-bold mb-1">Bosquejo Rechazado</h4>
+                   <p className="text-sm text-red-300/80">El Director General ha pedido cambios. Por favor corrige el bosquejo y vuelve a enviarlo a revisión.</p>
+                 </div>
+               </div>
              )}
 
              <div className="flex justify-between items-center mb-6">
