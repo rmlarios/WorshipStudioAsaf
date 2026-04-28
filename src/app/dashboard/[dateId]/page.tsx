@@ -94,17 +94,35 @@ export default function DateDetails() {
   // Directores Generales always can edit if not locked
   // Director del dia can edit ONLY if status is DRAFT (or not set)
   const isStatusReviewOrApproved = dateInfo.songsStatus === 'REVIEW' || dateInfo.songsStatus === 'APPROVED';
-  const canEditSongs = !dateInfo.locked && (isDirectorGeneral || (isDirectorDia && !isStatusReviewOrApproved));
+  // Solo se puede editar si no está bloqueado, TIENE un líder asignado, y los estados lo permiten
+  const hasLeader = !!dateInfo.directorId;
+  const canEditSongs = !dateInfo.locked && hasLeader && (isDirectorGeneral || (isDirectorDia && !isStatusReviewOrApproved));
 
   const handleToggleLock = async () => {
     if (!isDirectorGeneral) return;
-    const updated = { ...dateInfo, locked: !dateInfo.locked };
+
+    let updatedStatus = dateInfo.songsStatus;
+    // Sincronización: Al desbloquear un culto en Revisión/Aprobado, regresa a Borrador para permitir edición real
+    if (dateInfo.locked && (dateInfo.songsStatus === 'APPROVED' || dateInfo.songsStatus === 'REVIEW')) {
+      if (confirm("Este bosquejo estaba en Revisión o Aprobado. Al permitir la edición, regresará a 'Borrador' para que el Líder pueda modificarlo. ¿Continuar?")) {
+        updatedStatus = 'DRAFT';
+      } else {
+        return; // El usuario canceló la acción de desbloqueo
+      }
+    }
+
+    const updated = { ...dateInfo, locked: !dateInfo.locked, songsStatus: updatedStatus, wasRejected: false };
     await store.updateServiceDate(updated);
     setDateInfo(updated);
   };
 
-  const handleChangeStatus = async (newStatus: 'DRAFT' | 'REVIEW' | 'APPROVED') => {
+  const handleChangeStatus = async (newStatus: 'DRAFT' | 'REVIEW' | 'APPROVED', isReject: boolean = false) => {
     const updated = { ...dateInfo, songsStatus: newStatus };
+    if (isReject) {
+      updated.wasRejected = true;
+    } else if (newStatus === 'REVIEW') {
+      updated.wasRejected = false;
+    }
     await store.updateServiceDate(updated);
     setDateInfo(updated);
   };
@@ -329,9 +347,9 @@ export default function DateDetails() {
         {isDirectorGeneral && (
           <button 
             onClick={handleToggleLock}
-            className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-bold transition-colors w-fit ${dateInfo.locked ? 'bg-red-500/20 text-red-500 border border-red-500/50 hover:bg-red-500/30' : 'bg-neutral-800 text-neutral-300 border border-neutral-700 hover:bg-neutral-700'}`}
+            className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-bold transition-colors w-fit ${dateInfo.locked ? 'bg-neutral-800 text-neutral-300 border border-neutral-700 hover:bg-neutral-700' : 'bg-red-500/20 text-red-500 border border-red-500/50 hover:bg-red-500/30'}`}
           >
-            {dateInfo.locked ? <><Lock className="w-4 h-4"/> <span>Restringir Toda Edición</span></> : <><Unlock className="w-4 h-4"/> <span>Permitir Edición</span></>}
+            {dateInfo.locked ? <><Unlock className="w-4 h-4"/> <span>Permitir Edición</span></> : <><Lock className="w-4 h-4"/> <span>Restringir Toda Edición</span></>}
           </button>
         )}
       </div>
@@ -414,13 +432,31 @@ export default function DateDetails() {
                    </div>
                    <div className="flex space-x-2 w-full sm:w-auto">
                      <button onClick={() => handleChangeStatus('APPROVED')} className="flex-1 sm:flex-none bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded-lg font-bold text-sm transition-colors shadow">Aprobar</button>
-                     <button onClick={() => handleChangeStatus('DRAFT')} className="flex-1 sm:flex-none bg-neutral-800 hover:bg-neutral-700 text-white px-4 py-2 rounded-lg font-bold text-sm transition-colors border border-neutral-700">Devolver</button>
+                     <button onClick={() => handleChangeStatus('DRAFT', true)} className="flex-1 sm:flex-none bg-neutral-800 hover:bg-neutral-700 text-white px-4 py-2 rounded-lg font-bold text-sm transition-colors border border-neutral-700">Rechazar / Pedir Cambios</button>
                    </div>
                 </div>
              )}
 
+             {/* Rejected Banner for Leader */}
+             {dateInfo.wasRejected && dateInfo.songsStatus === 'DRAFT' && isDirectorDia && (
+               <div className="mb-6 bg-red-500/10 border border-red-500/30 rounded-xl p-4 flex items-center gap-3">
+                 <AlertTriangle className="w-5 h-5 text-red-500 shrink-0" />
+                 <div>
+                   <h4 className="text-red-400 font-bold mb-1">Bosquejo Rechazado</h4>
+                   <p className="text-sm text-red-300/80">El Director General ha pedido cambios. Por favor corrige el bosquejo y vuelve a enviarlo a revisión.</p>
+                 </div>
+               </div>
+             )}
+
              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-lg font-bold text-white">Bosquejo Musical</h3>
+                <div className="flex items-center gap-3">
+                  <h3 className="text-lg font-bold text-white">Bosquejo Musical</h3>
+                  {!hasLeader && !dateInfo.locked && (
+                    <span className="text-[10px] bg-red-500/10 text-red-400 px-2 py-1 rounded border border-red-500/20 font-medium flex items-center">
+                      <AlertTriangle className="w-3 h-3 mr-1" /> Requiere Líder para Editar
+                    </span>
+                  )}
+                </div>
                 
                 {/* Submit for Review Button (Only for Director del Dia) */}
                 {isDirectorDia && dateInfo.songsStatus === 'DRAFT' && dateInfo.songs.length > 0 && !isDirectorGeneral && (
