@@ -64,6 +64,16 @@ export interface Availability {
   available: boolean;
 }
 
+export interface SongSuggestion {
+  id: string;
+  serviceDateId: string;
+  userId: string;          // who suggested it
+  title: string;
+  artist: string;
+  category: string; // ID of the section
+  createdAt: string;       // ISO timestamp
+}
+
 export interface SystemSettings {
   defaultServiceDays: number[]; // 0 for Sunday, 1 for Monday, etc. Use JS Date day indices.
   sections?: SectionDef[];
@@ -76,4 +86,5 @@ export interface DatabaseSchema {
   availabilities: Availability[];
   settings: SystemSettings;
   library: LibrarySong[];
+  suggestions: SongSuggestion[];
 }
