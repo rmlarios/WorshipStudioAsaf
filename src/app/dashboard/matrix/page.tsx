@@ -398,6 +398,8 @@ export default function MatrixView() {
                             const isDirector = date.directorId === user.id;
                             const isAcompaniante = date.acompaniantesIds.includes(user.id);
                             const canAssign = user.role !== 'MUSICO';
+                            const isDirectorGeneral = currentUser.role === 'DIRECTOR';
+                            const isEditable = !date.locked && isDirectorGeneral;
 
                             // Build the cell appearance
                             let wrapperClass = "relative flex flex-col items-center justify-center h-full min-h-[64px] transition-all duration-150 rounded-sm";
@@ -462,7 +464,6 @@ export default function MatrixView() {
                               );
                             }
                             
-                            const isEditable = canAssign && !date.locked && currentUser.role === 'DIRECTOR';
                             if (isEditable) wrapperClass += " cursor-pointer hover:brightness-125 group/cell";
                             
                             return (
@@ -526,7 +527,9 @@ export default function MatrixView() {
                     <div className="flex items-center gap-3 mb-6">
                       {user && <Avatar name={user.name} />}
                       <div>
-                        <h3 className="text-lg font-bold text-white leading-tight">Programar Miembro</h3>
+                        <h3 className="text-lg font-bold text-white leading-tight">
+                          {user?.role === 'MUSICO' ? 'Gestionar Disponibilidad' : 'Programar Miembro'}
+                        </h3>
                         <p className="text-sm text-neutral-400">{user?.name} · {date?.dayName}</p>
                       </div>
                     </div>
@@ -557,44 +560,48 @@ export default function MatrixView() {
                       </div>
                     ) : (
                       <div className="space-y-2.5 mb-5">
-                        <button
-                          disabled={isSaving}
-                          onClick={() => handleUpdateRole('LEADER')}
-                          className="w-full flex items-center justify-between p-4 rounded-2xl transition-all group disabled:opacity-50 glow-yellow hover:brightness-110"
-                          style={{ background: 'rgba(250,204,21,0.12)', border: '1px solid rgba(250,204,21,0.25)' }}
-                        >
-                          <div className="flex items-center gap-3">
-                            <Crown className="w-5 h-5 text-yellow-400 icon-glow-yellow" fill="currentColor" />
-                            <span className="font-bold text-yellow-400">Asignar como Encargado</span>
-                          </div>
-                          <ChevronRight className="w-4 h-4 text-yellow-600 group-hover:translate-x-1 transition-transform" />
-                        </button>
+                        {user?.role !== 'MUSICO' && (
+                          <>
+                            <button
+                              disabled={isSaving}
+                              onClick={() => handleUpdateRole('LEADER')}
+                              className="w-full flex items-center justify-between p-4 rounded-2xl transition-all group disabled:opacity-50 glow-yellow hover:brightness-110"
+                              style={{ background: 'rgba(250,204,21,0.12)', border: '1px solid rgba(250,204,21,0.25)' }}
+                            >
+                              <div className="flex items-center gap-3">
+                                <Crown className="w-5 h-5 text-yellow-400 icon-glow-yellow" fill="currentColor" />
+                                <span className="font-bold text-yellow-400">Asignar como Encargado</span>
+                              </div>
+                              <ChevronRight className="w-4 h-4 text-yellow-600 group-hover:translate-x-1 transition-transform" />
+                            </button>
 
-                        <button
-                          disabled={isSaving}
-                          onClick={() => handleUpdateRole('CHOIR')}
-                          className="w-full flex items-center justify-between p-4 rounded-2xl transition-all group disabled:opacity-50 glow-pink hover:brightness-110"
-                          style={{ background: 'rgba(236,72,153,0.12)', border: '1px solid rgba(236,72,153,0.25)' }}
-                        >
-                          <div className="flex items-center gap-3">
-                            <Mic2 className="w-5 h-5 text-pink-400 icon-glow-pink" />
-                            <span className="font-bold text-pink-400">Asignar como Coro</span>
-                          </div>
-                          <ChevronRight className="w-4 h-4 text-pink-600 group-hover:translate-x-1 transition-transform" />
-                        </button>
+                            <button
+                              disabled={isSaving}
+                              onClick={() => handleUpdateRole('CHOIR')}
+                              className="w-full flex items-center justify-between p-4 rounded-2xl transition-all group disabled:opacity-50 glow-pink hover:brightness-110"
+                              style={{ background: 'rgba(236,72,153,0.12)', border: '1px solid rgba(236,72,153,0.25)' }}
+                            >
+                              <div className="flex items-center gap-3">
+                                <Mic2 className="w-5 h-5 text-pink-400 icon-glow-pink" />
+                                <span className="font-bold text-pink-400">Asignar como Coro</span>
+                              </div>
+                              <ChevronRight className="w-4 h-4 text-pink-600 group-hover:translate-x-1 transition-transform" />
+                            </button>
 
-                        <button
-                          disabled={isSaving}
-                          onClick={() => handleUpdateRole('REMOVE')}
-                          className="w-full flex items-center justify-between p-4 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 rounded-2xl transition-all disabled:opacity-50"
-                        >
-                          <div className="flex items-center gap-3 text-neutral-400">
-                            <Minus className="w-5 h-5" />
-                            <span className="font-bold">Quitar Asignación</span>
-                          </div>
-                        </button>
+                            <button
+                              disabled={isSaving}
+                              onClick={() => handleUpdateRole('REMOVE')}
+                              className="w-full flex items-center justify-between p-4 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 rounded-2xl transition-all disabled:opacity-50"
+                            >
+                              <div className="flex items-center gap-3 text-neutral-400">
+                                <Minus className="w-5 h-5" />
+                                <span className="font-bold">Quitar Asignación</span>
+                              </div>
+                            </button>
+                          </>
+                        )}
 
-                        <div className="border-t border-neutral-800 pt-3 mt-2">
+                        <div className={`border-t border-neutral-800 ${user?.role === 'MUSICO' ? '' : 'pt-3 mt-2'}`}>
                           <button
                             disabled={isSaving}
                             onClick={() => handleToggleAvailability(false)}

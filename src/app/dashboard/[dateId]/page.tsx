@@ -296,7 +296,8 @@ export default function DateDetails() {
     const av = availabilities.find(a => a.userId === u.id);
     return av?.available === true;
   });
-  const cantoresDisponibles = availableUsers.filter(u => u.role === 'CANTOR');
+  // Include DIRECTOR role so directors assigned via Matrix appear in the UI
+  const cantoresDisponibles = availableUsers.filter(u => u.role === 'CANTOR' || u.role === 'DIRECTOR');
 
   // Cantores that are either the director of the day OR one of the acompanantes
   const singingTeam = !dateInfo ? [] : allUsers.filter(u => 
@@ -574,10 +575,14 @@ export default function DateDetails() {
                                        <label className="text-[10px] uppercase text-neutral-500 font-bold mb-1 block">Artista</label>
                                        <input value={editSongData.artist} onChange={e => setEditSongData({...editSongData, artist: e.target.value})} type="text" className="w-full bg-neutral-950 border border-neutral-700 rounded-md p-2 text-sm text-white" placeholder="Artista" />
                                      </div>
-                                     <div className="col-span-1 md:col-span-1 border-t border-neutral-800 md:border-0 pt-2 md:pt-0 col-start-2 md:col-start-4">
-                                       <button onClick={() => setEditingSongId(null)} className="w-full mr-2 py-2 text-neutral-400 hover:text-white hover:bg-neutral-800 rounded-lg text-sm font-bold transition-colors">Cancelar</button>
+                                     <div className="col-span-2 md:col-span-3">
+                                       <label className="text-[10px] uppercase text-red-500 font-bold mb-1 block">URL YouTube</label>
+                                       <input value={editSongData.youtubeUrl || ""} onChange={e => setEditSongData({...editSongData, youtubeUrl: e.target.value})} type="url" className="w-full bg-neutral-950 border border-neutral-700 rounded-md p-2 text-sm text-red-200 focus:border-red-500 focus:outline-none" placeholder="https://youtube.com/watch?v=..." />
                                      </div>
-                                     <div className="col-span-1 md:col-span-4 flex">
+                                     <div className="col-span-2 md:col-span-1 flex items-end">
+                                       <button onClick={() => setEditingSongId(null)} className="w-full py-2 text-neutral-400 hover:text-white hover:bg-neutral-800 rounded-lg text-sm font-bold transition-colors">Cancelar</button>
+                                     </div>
+                                     <div className="col-span-2 md:col-span-4 flex">
                                        <button onClick={handleSaveEdit} className="w-full py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-bold transition-colors flex items-center justify-center"><Save className="w-4 h-4 mr-2"/> Guardar Cambios</button>
                                      </div>
                                    </div>
