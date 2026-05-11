@@ -3,8 +3,8 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import * as store from '../../../lib/firebaseStore';
-import { User, ServiceDate, Availability, Song, LibrarySong, SystemSettings, SectionDef } from '../../../lib/types';
-import { ArrowLeft, Lock, Unlock, Play, Save, Plus, Trash2, Send, CheckCircle, XCircle, Edit2, AlertTriangle, Loader2, Eye, Smartphone, X } from 'lucide-react';
+import { User, ServiceDate, Availability, Song, LibrarySong, SystemSettings, SectionDef, SongSuggestion } from '../../../lib/types';
+import { ArrowLeft, Lock, Unlock, Play, Save, Plus, Trash2, Send, CheckCircle, XCircle, Edit2, AlertTriangle, Loader2, Eye, Smartphone, X, Lightbulb } from 'lucide-react';
 import Link from 'next/link';
 import SetlistPreview from '../../../components/SetlistPreview';
 
@@ -22,6 +22,14 @@ export default function DateDetails() {
   const [settings, setSettings] = useState<SystemSettings | null>(null);
   const [refresh, setRefresh] = useState(0);
   const [loading, setLoading] = useState(true);
+
+  // Suggestions
+  const [suggestions, setSuggestions] = useState<SongSuggestion[]>([]);
+  const [newSuggestion, setNewSuggestion] = useState<{ title: string; artist: string; category: string }>({ title: '', artist: '', category: '' });
+  const [editingSuggestionId, setEditingSuggestionId] = useState<string | null>(null);
+  const [editSuggestionData, setEditSuggestionData] = useState<Partial<SongSuggestion>>({});
+  const [showSuggestionForm, setShowSuggestionForm] = useState(false);
+  const [isSavingSuggestion, setIsSavingSuggestion] = useState(false);
 
   // New Song form
   const [newSong, setNewSong] = useState<Partial<Song>>({ title: '', artist: '', tone: '', version: '', youtubeUrl: '', leadSingerId: '', section: '' });
@@ -52,7 +60,7 @@ export default function DateDetails() {
     }
   }, []);
 
-  const loadData = useCallback(async () => {
+    const loadData = useCallback(async () => {
     if (!currentUser) return;
     setLoading(true);
     try {
@@ -72,6 +80,14 @@ export default function DateDetails() {
         setAvailabilities(avails);
         const libs = await store.getLibrary();
         setLibrarySongs(libs);
+        const suggs = await store.getSuggestions(dateId);
+        suggs.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+        setSuggestions(suggs);
+
+        if (!newSuggestion.category && (s?.sections?.length ?? 0) > 0) {
+          const firstActive = s?.sections?.find(sec => sec.active);
+          if (firstActive) setNewSuggestion(prev => ({ ...prev, category: firstActive.id }));
+        }
       } else {
         router.push('/dashboard');
       }
@@ -79,13 +95,12 @@ export default function DateDetails() {
       console.error('Error loading date details:', err);
     }
     setLoading(false);
-  }, [currentUser, dateId, router]);
+  }, [currentUser, dateId, router, newSuggestion.category]);
 
   useEffect(() => {
     loadData();
   }, [loadData, refresh]);
-
-  if (!currentUser || !dateInfo) return <div className="flex items-center justify-center p-20"><Loader2 className="w-8 h-8 animate-spin text-pink-500" /></div>;
+if (!currentUser || !dateInfo) return <div className="flex items-center justify-center p-20"><Loader2 className="w-8 h-8 animate-spin text-pink-500" /></div>;
 
   const isDirectorGeneral = currentUser.role === 'DIRECTOR';
   const isDirectorDia = dateInfo.directorId === currentUser.id;
@@ -97,6 +112,8 @@ export default function DateDetails() {
   // Solo se puede editar si no está bloqueado, TIENE un líder asignado, y los estados lo permiten
   const hasLeader = !!dateInfo.directorId;
   const canEditSongs = !dateInfo.locked && hasLeader && (isDirectorGeneral || (isDirectorDia && !isStatusReviewOrApproved));
+
+  const activeSections = settings?.sections?.filter(s => s.active) || [];
 
   const handleToggleLock = async () => {
     if (!isDirectorGeneral) return;
@@ -288,6 +305,58 @@ export default function DateDetails() {
   const handleDeleteSong = async (songId: string) => {
     const updated = { ...dateInfo, songs: dateInfo.songs.filter(s => s.id !== songId) };
     await store.updateServiceDate(updated);
+    setDateInfo(updated);
+  };
+
+  // --- Suggestion Handlers ---
+  const handleAddSuggestion = async () => {
+    if (!newSuggestion.title || !currentUser) return;
+    setIsSavingSuggestion(true);
+    try {
+      await store.addSuggestion({
+        serviceDateId: dateId,
+        userId: currentUser.id,
+        title: newSuggestion.title.trim(),
+        artist: newSuggestion.artist.trim(),
+        category: newSuggestion.category,
+        createdAt: new Date().toISOString()
+      });
+      setNewSuggestion({ title: '', artist: '', category: activeSections[0]?.id || '' });
+      setShowSuggestionForm(false);
+      setRefresh(r => r + 1);
+    } catch (err) { console.error(err); }
+    setIsSavingSuggestion(false);
+  };
+
+  const handleUpdateSuggestion = async () => {
+    if (!editingSuggestionId || !editSuggestionData.title) return;
+    setIsSavingSuggestion(true);
+    try {
+      await store.updateSuggestion(editSuggestionData as SongSuggestion);
+      setEditingSuggestionId(null);
+      setEditSuggestionData({});
+      setRefresh(r => r + 1);
+    } catch (err) { console.error(err); }
+    setIsSavingSuggestion(false);
+  };
+
+  const handleDeleteSuggestion = async (id: string) => {
+    if (!confirm('Â¿Eliminar esta sugerencia?')) return;
+    await store.deleteSuggestion(id);
+    setRefresh(r => r + 1);
+  };
+
+    const handlePromoteSuggestion = async (suggestion: SongSuggestion) => {
+    const song: Song = {
+      id: Math.random().toString(),
+      title: suggestion.title,
+      artist: suggestion.artist || '',
+      tone: '', version: '', youtubeUrl: '', leadSingerId: '',
+      section: suggestion.category
+    };
+    const updated = { ...dateInfo, songs: [...dateInfo.songs, song] };
+    await store.updateServiceDate(updated);
+    await store.addOrUpdateLibrarySong(song);
     setDateInfo(updated);
   };
 
@@ -753,6 +822,122 @@ export default function DateDetails() {
         </div>
       </div>
      
+      {/* ── Suggestions Section ── */}
+      <div className="bg-neutral-900 border border-neutral-800 rounded-2xl overflow-hidden">
+        <div className="p-5 border-b border-neutral-800 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Lightbulb className="w-4 h-4 text-yellow-400" />
+            <h3 className="font-bold text-white">Sugerencias del Equipo</h3>
+            {suggestions.length > 0 && (
+              <span className="bg-yellow-500/20 text-yellow-400 text-[10px] font-black px-2 py-0.5 rounded-full">{suggestions.length}</span>
+            )}
+          </div>
+          {currentUser.role !== 'VISOR' && (
+            <button onClick={() => setShowSuggestionForm(!showSuggestionForm)} className="flex items-center gap-1.5 text-xs font-bold text-pink-400 hover:text-pink-300 bg-pink-500/10 hover:bg-pink-500/20 px-3 py-1.5 rounded-lg transition-colors">
+              <Plus className="w-3.5 h-3.5" /> Sugerir
+            </button>
+          )}
+        </div>
+
+        {showSuggestionForm && (
+          <div className="p-5 border-b border-neutral-800 bg-neutral-950/50 animate-fade-in">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div>
+                <label className="text-[10px] uppercase text-neutral-500 font-bold mb-1 block">Nombre del Canto *</label>
+                <input value={newSuggestion.title} onChange={e => setNewSuggestion({ ...newSuggestion, title: e.target.value })} type="text" autoFocus className="w-full bg-neutral-900 border border-neutral-700 rounded-lg p-2 text-sm text-white focus:outline-none focus:border-pink-500" placeholder="Ej. Digno" />
+              </div>
+              <div>
+                <label className="text-[10px] uppercase text-neutral-500 font-bold mb-1 block">Artista</label>
+                <input value={newSuggestion.artist} onChange={e => setNewSuggestion({ ...newSuggestion, artist: e.target.value })} type="text" className="w-full bg-neutral-900 border border-neutral-700 rounded-lg p-2 text-sm text-white focus:outline-none focus:border-pink-500" placeholder="Ej. Marcos Brunet" />
+              </div>
+              <div>
+                <label className="text-[10px] uppercase text-neutral-500 font-bold mb-1 block">Categoría</label>
+                <select value={newSuggestion.category} onChange={e => setNewSuggestion({ ...newSuggestion, category: e.target.value })} className="w-full bg-neutral-900 border border-neutral-700 rounded-lg p-2 text-sm text-white focus:outline-none focus:border-pink-500">
+                  {activeSections.map(s => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                  <option value="OTHER">Otra / Sin Clasificar</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex gap-2 mt-3 justify-end">
+              <button onClick={() => { setShowSuggestionForm(false); setNewSuggestion({ ...newSuggestion, title: '', artist: '' }); }} className="px-4 py-2 text-sm text-neutral-400 hover:text-white transition-colors">Cancelar</button>
+              <button onClick={handleAddSuggestion} disabled={!newSuggestion.title || isSavingSuggestion} className="px-4 py-2 bg-pink-600 hover:bg-pink-700 text-white text-sm font-bold rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2">
+                {isSavingSuggestion ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} Agregar Sugerencia
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="divide-y divide-neutral-800/40">
+          {suggestions.length === 0 ? (
+            <div className="text-center py-8 text-neutral-600 text-sm italic">Nadie ha sugerido canciones aún. ¡Sé el primero!</div>
+          ) : suggestions.map(suggestion => {
+            const author = allUsers.find(u => u.id === suggestion.userId);
+            const isOwn = suggestion.userId === currentUser.id;
+            const canManageSugg = isOwn || isDirectorGeneral || isDirectorDia;
+            const isEditingThis = editingSuggestionId === suggestion.id;
+            
+            const sectionName = activeSections.find(s => s.id === suggestion.category)?.name || (suggestion.category === 'OTHER' ? 'Otra' : suggestion.category);
+            const catColor = "bg-neutral-800 text-neutral-400"; // Default
+            return (
+              <div key={suggestion.id} className="p-4">
+                {isEditingThis ? (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 animate-fade-in">
+                    <div>
+                      <label className="text-[10px] uppercase text-neutral-500 font-bold mb-1 block">Canto *</label>
+                      <input value={editSuggestionData.title || ''} onChange={e => setEditSuggestionData({ ...editSuggestionData, title: e.target.value })} type="text" className="w-full bg-neutral-950 border border-neutral-700 rounded-lg p-2 text-sm text-white focus:outline-none focus:border-pink-500" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] uppercase text-neutral-500 font-bold mb-1 block">Artista</label>
+                      <input value={editSuggestionData.artist || ''} onChange={e => setEditSuggestionData({ ...editSuggestionData, artist: e.target.value })} type="text" className="w-full bg-neutral-950 border border-neutral-700 rounded-lg p-2 text-sm text-white focus:outline-none focus:border-pink-500" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] uppercase text-neutral-500 font-bold mb-1 block">Categoría</label>
+                      <select value={editSuggestionData.category || 'OTHER'} onChange={e => setEditSuggestionData({ ...editSuggestionData, category: e.target.value })} className="w-full bg-neutral-950 border border-neutral-700 rounded-lg p-2 text-sm text-white focus:outline-none focus:border-pink-500">
+                        {activeSections.map(s => (
+                          <option key={s.id} value={s.id}>{s.name}</option>
+                        ))}
+                        <option value="OTHER">Otra / Sin Clasificar</option>
+                      </select>
+                    </div>
+                    <div className="md:col-span-3 flex gap-2 justify-end">
+                      <button onClick={() => { setEditingSuggestionId(null); setEditSuggestionData({}); }} className="px-4 py-1.5 text-sm text-neutral-400 hover:text-white transition-colors">Cancelar</button>
+                      <button onClick={handleUpdateSuggestion} disabled={!editSuggestionData.title || isSavingSuggestion} className="px-4 py-1.5 bg-green-600 hover:bg-green-700 text-white text-sm font-bold rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2">
+                        {isSavingSuggestion ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Guardar
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-white font-semibold text-sm">{suggestion.title}</span>
+                        <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded ${catColor}`}>{sectionName}</span>
+                      </div>
+                      <p className="text-xs text-neutral-500 mt-0.5">{suggestion.artist || 'Sin artista'} · sugerido por <span className="text-neutral-400 font-medium">{author?.name || '?'}</span></p>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {canEditSongs && (
+                        <button onClick={() => handlePromoteSuggestion(suggestion)} className="text-[10px] font-bold bg-green-500/10 hover:bg-green-500/20 text-green-400 border border-green-500/20 px-2 py-1 rounded-lg transition-colors flex items-center gap-1" title="Agregar al Bosquejo Oficial">
+                          <Plus className="w-3 h-3" /> Setlist
+                        </button>
+                      )}
+                      {canManageSugg && (
+                        <>
+                          <button onClick={() => { setEditingSuggestionId(suggestion.id); setEditSuggestionData({ ...suggestion }); }} className="p-1.5 text-neutral-500 hover:text-white hover:bg-neutral-800 rounded-lg transition-colors"><Edit2 className="w-3.5 h-3.5" /></button>
+                          <button onClick={() => handleDeleteSuggestion(suggestion.id)} className="p-1.5 text-neutral-500 hover:text-red-400 hover:bg-neutral-800 rounded-lg transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       {/* WhatsApp Compact Preview Modal */}
       {showPreviewModal && (
         <SetlistPreview

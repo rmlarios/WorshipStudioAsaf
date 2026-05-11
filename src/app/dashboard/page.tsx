@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import * as store from '../../lib/firebaseStore';
-import { User, ServiceDate, Availability, SystemSettings } from '../../lib/types';
+import { User, ServiceDate, Availability, SystemSettings, SongSuggestion } from '../../lib/types';
 import Link from 'next/link';
-import { ChevronLeft, ChevronRight, CheckCircle2, Circle, CalendarPlus, CalendarDays, Trash2, Loader2, Eye, FileText, MessageCircle, XCircle, Star } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CheckCircle2, Circle, CalendarPlus, CalendarDays, Trash2, Loader2, Eye, FileText, MessageCircle, XCircle, Star, Lightbulb, Plus } from 'lucide-react';
 import { format, addMonths, subMonths, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, getDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import SetlistPreview from '../../components/SetlistPreview';
@@ -21,6 +21,7 @@ export default function Dashboard() {
   const [hasInitializedMonth, setHasInitializedMonth] = useState(false);
   const [refresh, setRefresh] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [allSuggestions, setAllSuggestions] = useState<SongSuggestion[]>([]);
 
   // States for Batch Saving Availability
   const [pendingChanges, setPendingChanges] = useState<Record<string, boolean>>({});
@@ -33,6 +34,12 @@ export default function Dashboard() {
   const [manualName, setManualName] = useState('');
   const [previewDate, setPreviewDate] = useState<ServiceDate | null>(null);
   const [isExporting, setIsExporting] = useState(false);
+  
+  // Quick Suggestion State
+  const [suggestionDate, setSuggestionDate] = useState<ServiceDate | null>(null);
+  const [viewSuggestionsDate, setViewSuggestionsDate] = useState<ServiceDate | null>(null);
+  const [newSuggestion, setNewSuggestion] = useState({ title: '', artist: '', category: '' });
+  const [isSavingSuggestion, setIsSavingSuggestion] = useState(false);
 
   useEffect(() => {
     const userStr = localStorage.getItem('currentUser');
@@ -72,6 +79,9 @@ export default function Dashboard() {
       
       setAvailabilities(myAvails);
       setAllAvailabilities(globalAvails);
+
+      const suggestions = await store.getSuggestionsByDateIds(dateIds);
+      setAllSuggestions(suggestions);
     } catch (err) {
       console.error('Error loading data:', err);
     }
@@ -221,6 +231,35 @@ export default function Dashboard() {
     }
   };
 
+  const handleAddSuggestion = async () => {
+    if (!suggestionDate || !newSuggestion.title || !currentUser) return;
+    setIsSavingSuggestion(true);
+    try {
+      await store.addSuggestion({
+        serviceDateId: suggestionDate.id,
+        userId: currentUser.id,
+        title: newSuggestion.title.trim(),
+        artist: newSuggestion.artist.trim(),
+        category: newSuggestion.category,
+        createdAt: new Date().toISOString()
+      });
+      setSuggestionDate(null);
+      setNewSuggestion({ title: '', artist: '', category: '' });
+      setRefresh(r => r + 1);
+      alert("¡Sugerencia enviada con éxito!");
+    } catch (err) {
+      console.error(err);
+      alert("Error al enviar sugerencia");
+    }
+    setIsSavingSuggestion(false);
+  };
+
+  const openSuggestionModal = (date: ServiceDate) => {
+    setSuggestionDate(date);
+    const firstActive = systemSettings?.sections?.find(s => s.active);
+    setNewSuggestion({ title: '', artist: '', category: firstActive?.id || 'OTHER' });
+  };
+
   if (!currentUser) return null;
 
   return (
@@ -335,6 +374,8 @@ export default function Dashboard() {
                 .map(a => allUsers.find(u => u.id === a.userId && u.role !== 'MUSICO')?.name)
                 .filter(Boolean);
 
+              const dateSuggestions = allSuggestions.filter(s => s.serviceDateId === date.id);
+
               return (
                 <div key={date.id} className="bg-neutral-900 border border-neutral-800 rounded-2xl flex flex-col items-start relative overflow-hidden group hover:border-neutral-700 transition-colors">
 
@@ -348,6 +389,8 @@ export default function Dashboard() {
                       Aprobado
                     </div>
                   )}
+
+
 
                   <div className="w-full p-5 flex-1">
                     <div className="flex justify-between items-start">
@@ -401,6 +444,27 @@ export default function Dashboard() {
                             <Eye className="w-4 h-4" />
                           </button>
                         )}
+                        {currentUser.role !== 'VISOR' && (
+                          <div className="flex items-center gap-1">
+                            {dateSuggestions.length > 0 && (
+                              <button
+                                onClick={() => setViewSuggestionsDate(date)}
+                                className="bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-500 p-1.5 rounded-lg transition-colors border border-yellow-500/30 flex items-center gap-1"
+                                title="Ver Sugerencias"
+                              >
+                                <MessageCircle className="w-4 h-4" />
+                                <span className="text-[10px] font-black">{dateSuggestions.length}</span>
+                              </button>
+                            )}
+                            <button
+                              onClick={() => openSuggestionModal(date)}
+                              className="bg-neutral-800 hover:bg-neutral-700 text-yellow-500 p-1.5 rounded-lg transition-colors border border-neutral-700"
+                              title="Sugerir Canción"
+                            >
+                              <Lightbulb className="w-4 h-4" />
+                            </button>
+                          </div>
+                        )}
                         <Link href={`/dashboard/${date.id}`} className="bg-neutral-800 hover:bg-neutral-700 text-white text-xs px-3 py-1.5 rounded-lg font-medium transition-colors border border-neutral-700">
                           {currentUser.role === 'DIRECTOR' ? 'Administrar' : isDirectorDia ? 'Bosquejo' : 'Ver Detalles'}
                         </Link>
@@ -433,6 +497,130 @@ export default function Dashboard() {
         allUsers={allUsers}
         onClose={() => setPreviewDate(null)}
       />
+
+      {/* Quick Suggestion Modal */}
+      {suggestionDate && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+          <div className="bg-neutral-900 border border-neutral-800 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-scale-in">
+            <div className="p-6 border-b border-neutral-800 bg-neutral-950/50">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-yellow-500/20 rounded-lg">
+                  <Lightbulb className="w-6 h-6 text-yellow-500" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-white">Sugerir Canción</h3>
+                  <p className="text-xs text-neutral-500 uppercase font-bold tracking-wider">{suggestionDate.dayName} · {suggestionDate.dateStr}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="text-[10px] uppercase text-neutral-500 font-bold mb-1.5 block">Nombre del Canto *</label>
+                <input 
+                  value={newSuggestion.title} 
+                  onChange={e => setNewSuggestion({ ...newSuggestion, title: e.target.value })} 
+                  type="text" 
+                  autoFocus 
+                  className="w-full bg-neutral-950 border border-neutral-700 rounded-xl p-3 text-white focus:outline-none focus:border-pink-500 transition-colors" 
+                  placeholder="Ej. Hermoso Momento" 
+                />
+              </div>
+              <div>
+                <label className="text-[10px] uppercase text-neutral-500 font-bold mb-1.5 block">Artista / Versión</label>
+                <input 
+                  value={newSuggestion.artist} 
+                  onChange={e => setNewSuggestion({ ...newSuggestion, artist: e.target.value })} 
+                  type="text" 
+                  className="w-full bg-neutral-950 border border-neutral-700 rounded-xl p-3 text-white focus:outline-none focus:border-pink-500 transition-colors" 
+                  placeholder="Ej. Kike Pavón" 
+                />
+              </div>
+              <div>
+                <label className="text-[10px] uppercase text-neutral-500 font-bold mb-1.5 block">Categoría Sugerida</label>
+                <select 
+                  value={newSuggestion.category} 
+                  onChange={e => setNewSuggestion({ ...newSuggestion, category: e.target.value })} 
+                  className="w-full bg-neutral-950 border border-neutral-700 rounded-xl p-3 text-white focus:outline-none focus:border-pink-500 transition-colors"
+                >
+                  {systemSettings?.sections?.filter(s => s.active).map(sec => (
+                    <option key={sec.id} value={sec.id}>{sec.name}</option>
+                  ))}
+                  <option value="OTHER">Otra / Especial</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="p-6 bg-neutral-950/50 border-t border-neutral-800 flex gap-3">
+              <button 
+                onClick={() => setSuggestionDate(null)} 
+                className="flex-1 py-3 text-sm font-bold text-neutral-400 hover:text-white transition-colors"
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={handleAddSuggestion} 
+                disabled={!newSuggestion.title || isSavingSuggestion}
+                className="flex-[2] py-3 bg-pink-600 hover:bg-pink-700 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
+              >
+                {isSavingSuggestion ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />}
+                Enviar Sugerencia
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* View Suggestions List Modal */}
+      {viewSuggestionsDate && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+          <div className="bg-neutral-900 border border-neutral-800 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh] animate-scale-in">
+            <div className="p-5 border-b border-neutral-800 bg-neutral-950/50 flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-yellow-500/20 rounded-lg text-yellow-500">
+                  <Lightbulb className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-white text-lg">Canciones Sugeridas</h3>
+                  <p className="text-[10px] text-neutral-500 font-black uppercase tracking-widest">{viewSuggestionsDate.dayName}</p>
+                </div>
+              </div>
+              <button onClick={() => setViewSuggestionsDate(null)} className="p-2 hover:bg-neutral-800 rounded-full transition-colors text-neutral-400 hover:text-white">
+                <XCircle className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-2">
+              <div className="divide-y divide-neutral-800">
+                {allSuggestions.filter(s => s.serviceDateId === viewSuggestionsDate.id).map(s => {
+                  const author = allUsers.find(u => u.id === s.userId);
+                  return (
+                    <div key={s.id} className="p-4 flex items-center justify-between gap-4">
+                      <div className="min-w-0">
+                        <h4 className="text-white font-bold truncate">{s.title}</h4>
+                        <p className="text-xs text-neutral-500 truncate">{s.artist || 'Sin artista'}</p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider">Sugerido por</p>
+                        <p className="text-xs text-pink-400 font-semibold">{author?.name || '?'}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-neutral-800 bg-neutral-950/20 flex justify-center">
+              <button 
+                onClick={() => setViewSuggestionsDate(null)}
+                className="px-8 py-2 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl text-sm font-bold transition-colors"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

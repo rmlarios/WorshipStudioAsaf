@@ -3,7 +3,7 @@ import {
   collection, doc, getDocs, getDoc, setDoc, updateDoc, deleteDoc,
   query, where, writeBatch, addDoc, onSnapshot
 } from 'firebase/firestore';
-import { User, ServiceDate, Availability, Song, LibrarySong, SystemSettings, SectionDef } from './types';
+import { User, ServiceDate, Availability, Song, LibrarySong, SystemSettings, SectionDef, SongSuggestion } from './types';
 
 const DEFAULT_SECTIONS: SectionDef[] = [
   { id: 'ALABANZAS', name: 'Alabanzas', active: true },
@@ -17,6 +17,7 @@ const USERS_COL = 'users';
 const SERVICE_DATES_COL = 'serviceDates';
 const AVAILABILITIES_COL = 'availabilities';
 const LIBRARY_COL = 'library';
+const SUGGESTIONS_COL = 'songSuggestions';
 const SETTINGS_DOC = 'settings/global';
 
 // --- USERS ---
@@ -133,6 +134,34 @@ export async function setAvailability(serviceDateId: string, userId: string, ava
   } else {
     await addDoc(collection(firestore, AVAILABILITIES_COL), { serviceDateId, userId, available });
   }
+}
+
+// --- SONG SUGGESTIONS ---
+
+export async function getSuggestions(serviceDateId: string): Promise<SongSuggestion[]> {
+  const q = query(collection(firestore, SUGGESTIONS_COL), where('serviceDateId', '==', serviceDateId));
+  const snap = await getDocs(q);
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as SongSuggestion));
+}
+
+export async function addSuggestion(suggestion: Omit<SongSuggestion, 'id'>): Promise<void> {
+  await addDoc(collection(firestore, SUGGESTIONS_COL), suggestion);
+}
+
+export async function updateSuggestion(suggestion: SongSuggestion): Promise<void> {
+  const { id, ...data } = suggestion;
+  await updateDoc(doc(firestore, SUGGESTIONS_COL, id), data as Record<string, unknown>);
+}
+
+export async function deleteSuggestion(suggestionId: string): Promise<void> {
+  await deleteDoc(doc(firestore, SUGGESTIONS_COL, suggestionId));
+}
+
+export async function getSuggestionsByDateIds(dateIds: string[]): Promise<SongSuggestion[]> {
+  if (dateIds.length === 0) return [];
+  const q = query(collection(firestore, SUGGESTIONS_COL), where('serviceDateId', 'in', dateIds));
+  const snap = await getDocs(q);
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as SongSuggestion));
 }
 
 // --- LIBRARY ---
