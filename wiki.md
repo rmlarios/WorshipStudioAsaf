@@ -116,6 +116,7 @@ Bienvenido a la documentación oficial y bitácora de desarrollo de **WorshipStu
 - **Seguridad y Control de Edición**: 
   - Se introdujo la obligatoriedad de asignar un **Líder (Encargado)** antes de permitir la edición de canciones. Si un culto no tiene líder, el acceso al setlist permanece bloqueado para prevenir registros huérfanos.
   - **Bloqueo Administrativo**: Una vez que un setlist entra en estado `REVIEW` (Revisión) o `APPROVED` (Aprobado), la edición se bloquea para el líder y solo el Director puede realizar modificaciones finales o liberar el bloqueo.
+  - **Capa de Seguridad en Escritura (Validación de Sesión Activa)**: Se implementó una verificación en tiempo real en todas las operaciones de modificación de datos de Firestore. Si un usuario intenta escribir datos pero su cuenta ha sido desactivada o eliminada por el administrador, el sistema detiene la operación, limpia la sesión local del navegador (`localStorage`), notifica al usuario mediante una alerta y lo redirige automáticamente a la pantalla de login. Esta capa es 100% compatible con computadoras, celulares y la aplicación instalada (PWA).
 - **Flujo de Rechazo y "wasRejected"**:
   - Los Directores ahora pueden "Rechazar" o "Solicitar Cambios" en un setlist con un clic. Esto devuelve el estado a `DRAFT` y marca el registro con una bandera `wasRejected`.
   - El Líder recibe una alerta visual inmediata (banner rojo) en su vista de edición, indicando que se requieren ajustes antes de volver a enviar a revisión.

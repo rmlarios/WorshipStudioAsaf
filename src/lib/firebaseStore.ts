@@ -20,6 +20,50 @@ const LIBRARY_COL = 'library';
 const SUGGESTIONS_COL = 'songSuggestions';
 const SETTINGS_DOC = 'settings/global';
 
+// --- SESSION VALIDATION ---
+
+async function validateSessionUserActive(): Promise<void> {
+  if (typeof window === 'undefined') return;
+
+  const userStr = localStorage.getItem('currentUser');
+  if (!userStr) {
+    throw new Error('SESIÓN INVÁLIDA: No hay sesión activa. Por favor inicie sesión.');
+  }
+
+  let sessionUser: User;
+  try {
+    sessionUser = JSON.parse(userStr);
+  } catch {
+    localStorage.removeItem('currentUser');
+    window.location.href = '/';
+    throw new Error('SESIÓN INVÁLIDA: Error al analizar la sesión. Redirigiendo...');
+  }
+
+  if (!sessionUser || !sessionUser.id) {
+    localStorage.removeItem('currentUser');
+    window.location.href = '/';
+    throw new Error('SESIÓN INVÁLIDA: Estructura de sesión no válida. Redirigiendo...');
+  }
+
+  const docRef = doc(firestore, USERS_COL, sessionUser.id);
+  const docSnap = await getDoc(docRef);
+
+  if (!docSnap.exists()) {
+    alert('Tu usuario ya no existe en el sistema. Serás redirigido al inicio.');
+    localStorage.removeItem('currentUser');
+    window.location.href = '/';
+    throw new Error('SESIÓN INVÁLIDA: El usuario no existe en la base de datos.');
+  }
+
+  const dbUser = docSnap.data() as User;
+  if (!dbUser.active) {
+    alert('Tu cuenta ha sido deshabilitada. Serás redirigido al inicio.');
+    localStorage.removeItem('currentUser');
+    window.location.href = '/';
+    throw new Error('SESIÓN INVÁLIDA: El usuario no está activo.');
+  }
+}
+
 // --- USERS ---
 
 export async function getUsers(): Promise<User[]> {
@@ -42,16 +86,19 @@ export async function getUserByUsername(username: string): Promise<User | null> 
 }
 
 export async function addUser(user: Omit<User, 'id'>): Promise<string> {
+  await validateSessionUserActive();
   const docRef = await addDoc(collection(firestore, USERS_COL), user);
   return docRef.id;
 }
 
 export async function updateUser(user: User): Promise<void> {
+  await validateSessionUserActive();
   const { id, ...data } = user;
   await updateDoc(doc(firestore, USERS_COL, id), data as Record<string, unknown>);
 }
 
 export async function deleteUser(userId: string): Promise<void> {
+  await validateSessionUserActive();
   await deleteDoc(doc(firestore, USERS_COL, userId));
 }
 
@@ -69,16 +116,19 @@ export async function getServiceDatesByMonth(month: string): Promise<ServiceDate
 }
 
 export async function addServiceDate(serviceDate: Omit<ServiceDate, 'id'>): Promise<string> {
+  await validateSessionUserActive();
   const docRef = await addDoc(collection(firestore, SERVICE_DATES_COL), serviceDate);
   return docRef.id;
 }
 
 export async function updateServiceDate(serviceDate: ServiceDate): Promise<void> {
+  await validateSessionUserActive();
   const { id, ...data } = serviceDate;
   await setDoc(doc(firestore, SERVICE_DATES_COL, id), data);
 }
 
 export async function deleteServiceDate(serviceDateId: string): Promise<void> {
+  await validateSessionUserActive();
   await deleteDoc(doc(firestore, SERVICE_DATES_COL, serviceDateId));
   // Also delete associated availabilities
   const q = query(collection(firestore, AVAILABILITIES_COL), where('serviceDateId', '==', serviceDateId));
@@ -122,6 +172,7 @@ export async function getAvailabilitiesByDateIds(dateIds: string[]): Promise<Ava
 }
 
 export async function setAvailability(serviceDateId: string, userId: string, available: boolean): Promise<void> {
+  await validateSessionUserActive();
   const q = query(
     collection(firestore, AVAILABILITIES_COL),
     where('serviceDateId', '==', serviceDateId),
@@ -145,15 +196,18 @@ export async function getSuggestions(serviceDateId: string): Promise<SongSuggest
 }
 
 export async function addSuggestion(suggestion: Omit<SongSuggestion, 'id'>): Promise<void> {
+  await validateSessionUserActive();
   await addDoc(collection(firestore, SUGGESTIONS_COL), suggestion);
 }
 
 export async function updateSuggestion(suggestion: SongSuggestion): Promise<void> {
+  await validateSessionUserActive();
   const { id, ...data } = suggestion;
   await updateDoc(doc(firestore, SUGGESTIONS_COL, id), data as Record<string, unknown>);
 }
 
 export async function deleteSuggestion(suggestionId: string): Promise<void> {
+  await validateSessionUserActive();
   await deleteDoc(doc(firestore, SUGGESTIONS_COL, suggestionId));
 }
 
@@ -172,6 +226,7 @@ export async function getLibrary(): Promise<LibrarySong[]> {
 }
 
 export async function addOrUpdateLibrarySong(song: Song): Promise<void> {
+  await validateSessionUserActive();
   const allLibrary = await getLibrary();
   const searchTitle = song.title.trim().toLowerCase();
   const existing = allLibrary.find(l => l.title.trim().toLowerCase() === searchTitle);
@@ -199,19 +254,23 @@ export async function addOrUpdateLibrarySong(song: Song): Promise<void> {
 }
 
 export async function addLibrarySongDirectly(newSong: Omit<LibrarySong, 'id'>): Promise<void> {
+  await validateSessionUserActive();
   await addDoc(collection(firestore, LIBRARY_COL), newSong);
 }
 
 export async function updateLibrarySongDirectly(updatedSong: LibrarySong): Promise<void> {
+  await validateSessionUserActive();
   const { id, ...data } = updatedSong;
   await setDoc(doc(firestore, LIBRARY_COL, id), data);
 }
 
 export async function deleteLibrarySong(songId: string): Promise<void> {
+  await validateSessionUserActive();
   await deleteDoc(doc(firestore, LIBRARY_COL, songId));
 }
 
 export async function syncAllSongsToLibrary(): Promise<void> {
+  await validateSessionUserActive();
   const allDates = await getAllServiceDates();
   const allLibrary = await getLibrary();
   
@@ -296,6 +355,7 @@ export async function getSettings(): Promise<SystemSettings> {
 }
 
 export async function updateSettings(settings: SystemSettings): Promise<void> {
+  await validateSessionUserActive();
   await setDoc(doc(firestore, 'settings', 'global'), settings);
 }
 
