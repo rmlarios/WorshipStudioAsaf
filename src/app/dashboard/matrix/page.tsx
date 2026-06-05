@@ -4,10 +4,11 @@ import { useState, useEffect, useCallback, useMemo, Fragment } from 'react';
 import Link from 'next/link';
 import * as store from '../../../lib/firebaseStore';
 import { User, ServiceDate, Availability, SystemSettings } from '../../../lib/types';
-import { ChevronLeft, ChevronRight, Check, X, Crown, Mic2, Minus, Loader2, AlertTriangle, Music, Eye, FileText, CheckCircle2, Star } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Check, X, Crown, Mic2, Minus, Loader2, AlertTriangle, Music, Eye, FileText, CheckCircle2, Star, Pencil } from 'lucide-react';
 import { format, addMonths, subMonths, parseISO, startOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import SetlistPreview from '../../../components/SetlistPreview';
+import MyAvailabilityModal from '../../../components/MyAvailabilityModal';
 import { exportMonthToPDF } from '../../../lib/exportUtils';
 
 // --- Helpers ---
@@ -56,6 +57,7 @@ export default function MatrixView() {
   const [bulkState, setBulkState] = useState<BulkState | null>(null);
   const [previewDate, setPreviewDate] = useState<ServiceDate | null>(null);
   const [isExporting, setIsExporting] = useState(false);
+  const [showMyAvailability, setShowMyAvailability] = useState(false);
 
   useEffect(() => {
     const userStr = localStorage.getItem('currentUser');
@@ -206,9 +208,8 @@ export default function MatrixView() {
   }, [allUsers]);
 
   if (!currentUser) return null;
-  if (currentUser.role !== 'DIRECTOR' && currentUser.role !== 'VISOR') {
-    return <div className="p-8 text-center text-white">Acceso Denegado.</div>;
-  }
+
+  const isAdmin = currentUser.role === 'DIRECTOR' || currentUser.role === 'VISOR';
 
   return (
     <div className="space-y-4 animate-fade-in flex flex-col h-[calc(100vh-80px)] md:h-[calc(100vh-120px)]">
@@ -241,15 +242,19 @@ export default function MatrixView() {
           </div>
           <div className="flex items-center justify-center gap-3 mt-1">
             <p className="text-neutral-500 uppercase tracking-widest font-semibold">Matriz de Planificación</p>
-            <span className="w-1 h-1 bg-neutral-700 rounded-full" />
-            <button
-              onClick={handleExportPDF}
-              disabled={isExporting}
-              className="flex items-center gap-1 text-pink-500 hover:text-pink-300 font-bold uppercase tracking-widest transition-all disabled:opacity-50"
-            >
-              {isExporting ? <Loader2 className="w-3 h-3 animate-spin" /> : <FileText className="w-3 h-3" />}
-              <span>Exportar PDF</span>
-            </button>
+            {isAdmin && (
+              <>
+                <span className="w-1 h-1 bg-neutral-700 rounded-full" />
+                <button
+                  onClick={handleExportPDF}
+                  disabled={isExporting}
+                  className="flex items-center gap-1 text-pink-500 hover:text-pink-300 font-bold uppercase tracking-widest transition-all disabled:opacity-50"
+                >
+                  {isExporting ? <Loader2 className="w-3 h-3 animate-spin" /> : <FileText className="w-3 h-3" />}
+                  <span>Exportar PDF</span>
+                </button>
+              </>
+            )}
           </div>
         </div>
 
@@ -291,8 +296,8 @@ export default function MatrixView() {
                         {/* Date header button → opens bulk editor */}
                         <button
                           onClick={() => handleOpenBulk(date)}
-                          disabled={date.locked || currentUser.role !== 'DIRECTOR'}
-                          title={date.locked || currentUser.role !== 'DIRECTOR' ? undefined : 'Editor Masivo'}
+                          disabled={date.locked || !isAdmin}
+                          title={date.locked || !isAdmin ? undefined : 'Editor Masivo'}
                           className="flex flex-col items-center justify-center px-3 py-2.5 w-full border-b border-neutral-800/40 hover:bg-white/5 transition-colors disabled:opacity-50"
                         >
                           <span className="text-[11px] text-neutral-600 uppercase font-bold tracking-widest mb-1">
@@ -366,7 +371,18 @@ export default function MatrixView() {
                             <div className="flex items-center gap-3">
                               <Avatar name={user.name} />
                               <div className="flex flex-col min-w-0">
-                                <span className="text-white font-semibold text-sm truncate leading-tight">{user.name}</span>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-white font-semibold text-sm truncate leading-tight">{user.name}</span>
+                                  {currentUser.id === user.id && (
+                                    <button
+                                      onClick={() => setShowMyAvailability(true)}
+                                      className="p-1 rounded-md bg-pink-500/10 hover:bg-pink-500/20 border border-pink-500/20 hover:border-pink-500/40 transition-all group/edit"
+                                      title="Editar mi disponibilidad"
+                                    >
+                                      <Pencil className="w-3 h-3 text-pink-400 group-hover/edit:text-pink-300 transition-colors" />
+                                    </button>
+                                  )}
+                                </div>
                                 {/* Availability stats */}
                                 <div className="flex items-center gap-2 mt-1">
                                   {(() => {
@@ -398,8 +414,7 @@ export default function MatrixView() {
                             const isDirector = date.directorId === user.id;
                             const isAcompaniante = date.acompaniantesIds.includes(user.id);
                             const canAssign = user.role !== 'MUSICO';
-                            const isDirectorGeneral = currentUser.role === 'DIRECTOR';
-                            const isEditable = !date.locked && isDirectorGeneral;
+                            const isEditable = !date.locked && isAdmin;
 
                             // Build the cell appearance
                             let wrapperClass = "relative flex flex-col items-center justify-center h-full min-h-[64px] transition-all duration-150 rounded-sm";
@@ -787,6 +802,16 @@ export default function MatrixView() {
 
       {/* ── Setlist Preview ── */}
       <SetlistPreview serviceDate={previewDate} allUsers={allUsers} onClose={() => setPreviewDate(null)} />
+
+      {/* ── My Availability Modal ── */}
+      <MyAvailabilityModal
+        isOpen={showMyAvailability}
+        onClose={() => setShowMyAvailability(false)}
+        currentUser={currentUser}
+        serviceDates={serviceDates}
+        availabilities={availabilities}
+        onSaveSuccess={loadData}
+      />
     </div>
   );
 }
