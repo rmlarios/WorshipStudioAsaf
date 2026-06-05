@@ -13,6 +13,10 @@ Para ingresar a la plataforma, utiliza las credenciales proporcionadas por tu Di
 > [!TIP]
 > La nueva pantalla de inicio ahora cuenta con el logotipo oficial **Asaf 148** y está optimizada para dispositivos móviles.
 
+> [!IMPORTANT]
+> **Cierre Automático por Seguridad (Usuario Inactivo)**:
+> Para proteger la integridad de la información en tiempo real, la plataforma verifica el estado de tu cuenta antes de procesar cualquier cambio o guardado de datos. Si un administrador deshabilita o elimina tu cuenta mientras estás navegando, el sistema abortará cualquier operación de escritura que intentes realizar, mostrará una alerta explicativa, limpiará tu sesión en el dispositivo y te redirigirá automáticamente a la pantalla de login. Esto aplica tanto para PC/laptops como para celulares y la PWA instalada.
+
 ---
 
 ## 👥 2. Roles y Permisos
