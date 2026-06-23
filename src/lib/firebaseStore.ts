@@ -393,20 +393,20 @@ export async function seedInitialData(): Promise<void> {
   const usersSnap = await getDocs(collection(firestore, USERS_COL));
   if (!usersSnap.empty) return; // Ya tiene datos, no sobrescribir
 
-  const initialUsers: Omit<User, 'id'>[] = [
-    { name: 'Director General', role: 'DIRECTOR', emailOrPhone: 'admin', password: 'admin123', active: true },
-    { name: 'Sayda', role: 'CANTOR', emailOrPhone: 'sayda', password: '1234', active: true },
-    { name: 'Maryin', role: 'CANTOR', emailOrPhone: 'maryin', password: '1234', active: true },
-    { name: 'Valeria', role: 'CANTOR', emailOrPhone: 'valeria', password: '1234', active: true },
-    { name: 'Miguel', role: 'CANTOR', emailOrPhone: 'miguel', password: '1234', active: true },
-    { name: 'Ervin', role: 'CANTOR', emailOrPhone: 'ervin', password: '1234', active: true },
-    { name: 'Músico 1', role: 'MUSICO', emailOrPhone: 'musico1', password: '1234', active: true },
-  ];
+  const defaultAdmin: Omit<User, 'id'> = {
+    name: 'Director General',
+    role: 'DIRECTOR',
+    emailOrPhone: 'admin',
+    password: 'admin123',
+    active: true
+  };
 
-  for (const u of initialUsers) {
-    await addDoc(collection(firestore, USERS_COL), u);
+  await addDoc(collection(firestore, USERS_COL), defaultAdmin);
+
+  // Settings por defecto (solo si no existen)
+  const settingsDocRef = doc(firestore, 'settings', 'global');
+  const settingsSnap = await getDoc(settingsDocRef);
+  if (!settingsSnap.exists()) {
+    await setDoc(settingsDocRef, { defaultServiceDays: [0, 2], sections: DEFAULT_SECTIONS });
   }
-
-  // Settings por defecto
-  await setDoc(doc(firestore, 'settings', 'global'), { defaultServiceDays: [0, 2], sections: DEFAULT_SECTIONS });
 }
