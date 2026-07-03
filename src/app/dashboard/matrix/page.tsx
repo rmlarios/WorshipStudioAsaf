@@ -9,7 +9,7 @@ import { format, addMonths, subMonths, parseISO, startOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import SetlistPreview from '../../../components/SetlistPreview';
 import MyAvailabilityModal from '../../../components/MyAvailabilityModal';
-import { exportMonthToPDF } from '../../../lib/exportUtils';
+import { exportMonthToPDF, exportMatrixToPDF, exportMatrixToPNG } from '../../../lib/exportUtils';
 
 // --- Helpers ---
 function getInitials(name: string): string {
@@ -57,6 +57,8 @@ export default function MatrixView() {
   const [bulkState, setBulkState] = useState<BulkState | null>(null);
   const [previewDate, setPreviewDate] = useState<ServiceDate | null>(null);
   const [isExporting, setIsExporting] = useState(false);
+  const [isExportingMatrixPDF, setIsExportingMatrixPDF] = useState(false);
+  const [isExportingMatrixPNG, setIsExportingMatrixPNG] = useState(false);
   const [showMyAvailability, setShowMyAvailability] = useState(false);
 
   useEffect(() => {
@@ -188,6 +190,30 @@ export default function MatrixView() {
     setIsExporting(false);
   };
 
+  const handleExportMatrixPDF = async () => {
+    setIsExportingMatrixPDF(true);
+    try {
+      const monthStr = format(currentMonth, 'yyyy-MM');
+      await exportMatrixToPDF(monthStr, serviceDates, allUsers, availabilities);
+    } catch (err) {
+      console.error(err);
+      alert("Error al exportar PDF de la matriz");
+    }
+    setIsExportingMatrixPDF(false);
+  };
+
+  const handleExportMatrixPNG = async () => {
+    setIsExportingMatrixPNG(true);
+    try {
+      const monthStr = format(currentMonth, 'yyyy-MM');
+      await exportMatrixToPNG('matrix-table', monthStr);
+    } catch (err) {
+      console.error(err);
+      alert("Error al exportar imagen de la matriz");
+    }
+    setIsExportingMatrixPNG(false);
+  };
+
   const handleSetDefaultMonth = async () => {
     if (!currentUser || currentUser.role !== 'DIRECTOR' || !systemSettings) return;
     
@@ -201,9 +227,9 @@ export default function MatrixView() {
 
   const groupedUsers = useMemo(() => {
     return [
-      { role: 'Directores', users: allUsers.filter(u => u.role === 'DIRECTOR') },
-      { role: 'Cantores', users: allUsers.filter(u => u.role === 'CANTOR') },
-      { role: 'Músicos', users: allUsers.filter(u => u.role === 'MUSICO') },
+      { role: 'Directores', users: allUsers.filter(u => u.role === 'DIRECTOR' && u.visibleInRoles !== false) },
+      { role: 'Cantores', users: allUsers.filter(u => u.role === 'CANTOR' && u.visibleInRoles !== false) },
+      { role: 'Músicos', users: allUsers.filter(u => u.role === 'MUSICO' && u.visibleInRoles !== false) },
     ];
   }, [allUsers]);
 
@@ -240,20 +266,43 @@ export default function MatrixView() {
               </button>
             )}
           </div>
-          <div className="flex items-center justify-center gap-3 mt-1">
-            <p className="text-neutral-500 uppercase tracking-widest font-semibold">Matriz de Planificación</p>
+          <div className="flex flex-wrap items-center justify-center gap-2 mt-1">
+            <p className="text-neutral-500 uppercase tracking-widest font-semibold text-xs mr-1">Matriz de Planificación</p>
             {isAdmin && (
-              <>
-                <span className="w-1 h-1 bg-neutral-700 rounded-full" />
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="w-1 h-1 bg-neutral-700 rounded-full hidden sm:inline" />
                 <button
                   onClick={handleExportPDF}
-                  disabled={isExporting}
-                  className="flex items-center gap-1 text-pink-500 hover:text-pink-300 font-bold uppercase tracking-widest transition-all disabled:opacity-50"
+                  disabled={isExporting || isExportingMatrixPDF || isExportingMatrixPNG}
+                  className="flex items-center gap-1 text-pink-500 hover:text-pink-300 font-bold uppercase tracking-widest text-[10px] transition-all disabled:opacity-50 cursor-pointer"
+                  title="Exportar PDF de todos los bosquejos musicales del mes"
                 >
                   {isExporting ? <Loader2 className="w-3 h-3 animate-spin" /> : <FileText className="w-3 h-3" />}
-                  <span>Exportar PDF</span>
+                  <span>Bosquejos (PDF)</span>
                 </button>
-              </>
+                
+                <span className="w-1 h-1 bg-neutral-700 rounded-full" />
+                <button
+                  onClick={handleExportMatrixPDF}
+                  disabled={isExporting || isExportingMatrixPDF || isExportingMatrixPNG}
+                  className="flex items-center gap-1 text-pink-500 hover:text-pink-300 font-bold uppercase tracking-widest text-[10px] transition-all disabled:opacity-50 cursor-pointer"
+                  title="Exportar PDF oficial de la cuadrícula de la matriz para imprimir"
+                >
+                  {isExportingMatrixPDF ? <Loader2 className="w-3 h-3 animate-spin" /> : <FileText className="w-3 h-3" />}
+                  <span>Matriz (PDF)</span>
+                </button>
+                
+                <span className="w-1 h-1 bg-neutral-700 rounded-full" />
+                <button
+                  onClick={handleExportMatrixPNG}
+                  disabled={isExporting || isExportingMatrixPDF || isExportingMatrixPNG}
+                  className="flex items-center gap-1 text-pink-500 hover:text-pink-300 font-bold uppercase tracking-widest text-[10px] transition-all disabled:opacity-50 cursor-pointer"
+                  title="Exportar la cuadrícula visual de la matriz como imagen PNG para compartir"
+                >
+                  {isExportingMatrixPNG ? <Loader2 className="w-3 h-3 animate-spin" /> : <FileText className="w-3 h-3" />}
+                  <span>Matriz (PNG)</span>
+                </button>
+              </div>
             )}
           </div>
         </div>
@@ -281,7 +330,7 @@ export default function MatrixView() {
           style={{ background: 'linear-gradient(160deg, #131313 0%, #0d0d0d 100%)' }}>
 
           <div className="overflow-auto flex-1 custom-scrollbar">
-            <table className="w-full text-sm text-left border-collapse">
+            <table className="w-full text-sm text-left border-collapse" id="matrix-table">
 
               {/* ── Column Headers ── */}
               <thead className="sticky top-0 z-30" style={{ background: 'rgba(10,10,10,0.9)', backdropFilter: 'blur(12px)' }}>

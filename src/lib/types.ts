@@ -7,6 +7,7 @@ export interface User {
   emailOrPhone: string;
   password: string;
   active: boolean;
+  visibleInRoles?: boolean;
 }
 
 export interface SectionDef {

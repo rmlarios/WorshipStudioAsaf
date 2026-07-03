@@ -14,8 +14,8 @@ export default function MembersPage() {
 
   // Form states
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [formData, setFormData] = useState<{ name: string, emailOrPhone: string, password: string, role: UserRole }>({
-    name: '', emailOrPhone: '', password: '', role: 'CANTOR'
+  const [formData, setFormData] = useState<{ name: string, emailOrPhone: string, password: string, role: UserRole, visibleInRoles: boolean }>({
+    name: '', emailOrPhone: '', password: '', role: 'CANTOR', visibleInRoles: true
   });
   const [showPassword, setShowPassword] = useState<Record<string, boolean>>({});
 
@@ -94,12 +94,18 @@ export default function MembersPage() {
 
   const handleStartAdd = () => {
     setEditingId('new');
-    setFormData({ name: '', emailOrPhone: '', password: '1234', role: 'CANTOR' });
+    setFormData({ name: '', emailOrPhone: '', password: '1234', role: 'CANTOR', visibleInRoles: true });
   };
 
   const handleStartEdit = (user: User) => {
     setEditingId(user.id);
-    setFormData({ name: user.name, emailOrPhone: user.emailOrPhone, password: user.password || '', role: user.role });
+    setFormData({ 
+      name: user.name, 
+      emailOrPhone: user.emailOrPhone, 
+      password: user.password || '', 
+      role: user.role,
+      visibleInRoles: user.visibleInRoles !== false
+    });
   };
 
   const handleSave = async () => {
@@ -111,7 +117,8 @@ export default function MembersPage() {
         emailOrPhone: formData.emailOrPhone.toLowerCase().trim(),
         password: formData.password,
         role: formData.role,
-        active: true
+        active: true,
+        visibleInRoles: formData.visibleInRoles
       });
     } else if (editingId) {
       const existing = members.find(m => m.id === editingId);
@@ -121,7 +128,8 @@ export default function MembersPage() {
           name: formData.name,
           emailOrPhone: formData.emailOrPhone.toLowerCase().trim(),
           password: formData.password,
-          role: formData.role
+          role: formData.role,
+          visibleInRoles: formData.visibleInRoles
         });
       }
     }
@@ -182,6 +190,20 @@ export default function MembersPage() {
                   <option value="VISOR">Visor</option>
                 </select>
               </div>
+              <div className="mt-4">
+                <label className="flex items-center space-x-3 hover:bg-neutral-950/50 p-2.5 rounded-lg cursor-pointer transition-colors border border-neutral-850 w-fit">
+                  <input 
+                    type="checkbox" 
+                    checked={formData.visibleInRoles}
+                    onChange={e => setFormData({ ...formData, visibleInRoles: e.target.checked })}
+                    className="accent-pink-500 w-4 h-4 cursor-pointer"
+                  />
+                  <div className="flex flex-col">
+                    <span className="text-sm text-neutral-200 font-semibold">Participa en Roles de Alabanza</span>
+                    <span className="text-[10px] text-neutral-500">Habilita a este miembro para ser asignado en cultos como músico, cantor o director.</span>
+                  </div>
+                </label>
+              </div>
               <div className="flex space-x-2 mt-4 pt-4 border-t border-neutral-800">
                 <button onClick={() => setEditingId(null)} className="flex-1 py-2 text-neutral-400 hover:text-white bg-neutral-800 rounded-lg text-sm font-bold transition-colors">Cancelar</button>
                 <button onClick={handleSave} className="flex-1 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-bold transition-colors flex items-center justify-center">
@@ -209,6 +231,20 @@ export default function MembersPage() {
                       <option value="VISOR">Visor</option>
                     </select>
                   </div>
+                  <div className="mt-4">
+                    <label className="flex items-center space-x-3 hover:bg-neutral-950/50 p-2.5 rounded-lg cursor-pointer transition-colors border border-neutral-850 w-fit">
+                      <input 
+                        type="checkbox" 
+                        checked={formData.visibleInRoles}
+                        onChange={e => setFormData({ ...formData, visibleInRoles: e.target.checked })}
+                        className="accent-pink-500 w-4 h-4 cursor-pointer"
+                      />
+                      <div className="flex flex-col">
+                        <span className="text-sm text-neutral-200 font-semibold">Participa en Roles de Alabanza</span>
+                        <span className="text-[10px] text-neutral-500">Habilita a este miembro para ser asignado en cultos como músico, cantor o director.</span>
+                      </div>
+                    </label>
+                  </div>
                   <div className="flex space-x-2 mt-4 pt-4 border-t border-neutral-800">
                     <button onClick={() => setEditingId(null)} className="flex-1 py-2 text-neutral-400 hover:text-white bg-neutral-800 rounded-lg text-sm font-bold transition-colors">Cancelar</button>
                     <button onClick={handleSave} className="flex-1 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-bold transition-colors flex items-center justify-center">
@@ -231,6 +267,9 @@ export default function MembersPage() {
                       <span className="text-xs text-neutral-500 font-mono">@{member.emailOrPhone}</span>
                       <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded border ${roleColors[member.role]}`}>{member.role}</span>
                       {!member.active && <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-red-500/20 text-red-400 border border-red-500/30">Deshabilitado</span>}
+                      {member.visibleInRoles === false && (
+                        <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30">Excluido de Roles</span>
+                      )}
                     </div>
                     <div className="flex items-center mt-1">
                       <span className="text-xs text-neutral-600 mr-1">Clave:</span>

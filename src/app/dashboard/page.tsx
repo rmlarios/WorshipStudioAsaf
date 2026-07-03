@@ -371,7 +371,7 @@ export default function Dashboard() {
               const availableInThisDate = allAvailabilities.filter(a => a.serviceDateId === date.id && a.available);
               const otherAvailableNames = availableInThisDate
                 .filter(a => a.userId !== currentUser.id)
-                .map(a => allUsers.find(u => u.id === a.userId && u.role !== 'MUSICO')?.name)
+                .map(a => allUsers.find(u => u.id === a.userId && u.role !== 'MUSICO' && u.visibleInRoles !== false)?.name)
                 .filter(Boolean);
 
               const dateSuggestions = allSuggestions.filter(s => s.serviceDateId === date.id);
@@ -425,14 +425,21 @@ export default function Dashboard() {
 
                   <div className="w-full mt-auto px-5 pb-5">
                     <div className="flex items-center justify-between border-t border-neutral-800 pt-4">
-                      <button
-                        disabled={date.locked || currentUser.role === 'VISOR'}
-                        onClick={() => toggleAvailability(date.id, isAvailable, date.locked)}
-                        className={`flex items-center space-x-2 text-sm font-medium transition-colors ${date.locked || currentUser.role === 'VISOR' ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105 active:scale-95'} ${isAvailable ? 'text-green-500' : 'text-red-500/70'}`}
-                      >
-                        {isAvailable ? <CheckCircle2 className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
-                        <span>{isAvailable ? 'Disponible' : 'No Disponible'}</span>
-                      </button>
+                      {currentUser.visibleInRoles !== false ? (
+                        <button
+                          disabled={date.locked || currentUser.role === 'VISOR'}
+                          onClick={() => toggleAvailability(date.id, isAvailable, date.locked)}
+                          className={`flex items-center space-x-2 text-sm font-medium transition-colors ${date.locked || currentUser.role === 'VISOR' ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105 active:scale-95'} ${isAvailable ? 'text-green-500' : 'text-red-500/70'}`}
+                        >
+                          {isAvailable ? <CheckCircle2 className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
+                          <span>{isAvailable ? 'Disponible' : 'No Disponible'}</span>
+                        </button>
+                      ) : (
+                        <div className="flex items-center space-x-1.5 text-neutral-600 text-xs italic font-medium">
+                          <XCircle className="w-4 h-4 text-neutral-700" />
+                          <span>Excluido de Roles</span>
+                        </div>
+                      )}
 
                       <div className="flex items-center space-x-2">
                         {date.songs?.length > 0 && (

@@ -363,7 +363,7 @@ if (!currentUser || !dateInfo) return <div className="flex items-center justify-
   // Get available cantores
   const availableUsers = allUsers.filter(u => {
     const av = availabilities.find(a => a.userId === u.id);
-    return av?.available === true;
+    return av?.available === true && u.visibleInRoles !== false;
   });
   // Include DIRECTOR role so directors assigned via Matrix appear in the UI
   const cantoresDisponibles = availableUsers.filter(u => u.role === 'CANTOR' || u.role === 'DIRECTOR');
