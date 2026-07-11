@@ -4,9 +4,147 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import * as store from '../../../lib/firebaseStore';
 import { User, ServiceDate, Availability, Song, LibrarySong, SystemSettings, SectionDef, SongSuggestion } from '../../../lib/types';
-import { ArrowLeft, Lock, Unlock, Play, Save, Plus, Trash2, Send, CheckCircle, XCircle, Edit2, AlertTriangle, Loader2, Eye, Smartphone, X, Lightbulb } from 'lucide-react';
+import { ArrowLeft, Lock, Unlock, Play, Save, Plus, Trash2, Send, CheckCircle, XCircle, Edit2, AlertTriangle, Loader2, Eye, Smartphone, X, Lightbulb, List, FileText } from 'lucide-react';
 import Link from 'next/link';
 import SetlistPreview from '../../../components/SetlistPreview';
+
+// --- HELPERS FOR QUICK TEXT-BASED SETLIST EDITING ---
+const normalizeText = (text: string): string => {
+  return text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // remove accents
+    .replace(/[^a-z0-9]/g, "") // keep only alphanumeric
+    .trim();
+};
+
+const normalizeSectionName = (name: string): string => {
+  return name
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // remove accents
+    .replace(/[^a-z0-9]/g, "") // keep only alphanumeric
+    .trim();
+};
+
+const stripParentheses = (text: string): string => {
+  return text.replace(/\(.*?\)/g, "").trim();
+};
+
+const generatePlainTextSetlist = (songs: Song[], activeSections: SectionDef[]): string => {
+  let text = '';
+  const validSectionIds = new Set(activeSections.map(s => s.id));
+  
+  activeSections.forEach((sec) => {
+    const secSongs = songs.filter(s => s.section === sec.id);
+    if (secSongs.length > 0) {
+      if (text) text += '\n\n';
+      text += `${sec.name}\n`;
+      secSongs.forEach(song => {
+        text += `${song.title}\n`;
+      });
+    }
+  });
+  
+  const orphanSongs = songs.filter(s => !s.section || !validSectionIds.has(s.section));
+  if (orphanSongs.length > 0) {
+    if (text) text += '\n\n';
+    text += `Otras\n`;
+    orphanSongs.forEach(song => {
+      text += `${song.title}\n`;
+    });
+  }
+  
+  return text;
+};
+
+const parsePlainTextSetlist = (
+  text: string, 
+  activeSections: SectionDef[], 
+  existingSongs: Song[], 
+  librarySongs: LibrarySong[],
+  directorId?: string
+): Song[] => {
+  const lines = text.split('\n');
+  const parsedSongs: Song[] = [];
+  let currentSectionId = activeSections[0]?.id || 'OTHER';
+  
+  const sectionMap = new Map<string, string>();
+  activeSections.forEach(sec => {
+    sectionMap.set(normalizeSectionName(sec.name), sec.id);
+  });
+  
+  for (let line of lines) {
+    line = line.trim();
+    if (!line) continue;
+    
+    if (line.toLowerCase() === 'bosquejo') {
+      continue;
+    }
+    
+    const normalizedLine = normalizeSectionName(line);
+    if (sectionMap.has(normalizedLine)) {
+      currentSectionId = sectionMap.get(normalizedLine)!;
+      continue;
+    }
+    
+    const songTitles = line.split('/').map(t => t.trim()).filter(Boolean);
+    
+    for (const rawTitle of songTitles) {
+      const cleanTitle = rawTitle.replace(/\.$/, '').trim();
+      if (!cleanTitle) continue;
+      
+      const existingMatch = existingSongs.find(s => 
+        normalizeText(s.title) === normalizeText(cleanTitle)
+      );
+      
+      if (existingMatch) {
+        parsedSongs.push({
+          ...existingMatch,
+          section: currentSectionId
+        });
+      } else {
+        const libraryMatch = librarySongs.find(ls => 
+          normalizeText(ls.title) === normalizeText(cleanTitle) ||
+          normalizeText(stripParentheses(ls.title)) === normalizeText(stripParentheses(cleanTitle))
+        );
+        
+        if (libraryMatch) {
+          let tone = 'Desconocido';
+          if (directorId && libraryMatch.userPreferredTones && libraryMatch.userPreferredTones[directorId]) {
+            tone = libraryMatch.userPreferredTones[directorId];
+          } else if (libraryMatch.originalTone && libraryMatch.originalTone !== 'Desconocido') {
+            tone = libraryMatch.originalTone;
+          }
+          
+          parsedSongs.push({
+            id: Math.random().toString(),
+            title: libraryMatch.title,
+            artist: libraryMatch.artist !== 'Desconocido' ? libraryMatch.artist : '',
+            tone: tone,
+            version: '',
+            youtubeUrl: libraryMatch.youtubeUrl || '',
+            leadSingerId: '',
+            section: currentSectionId
+          });
+        } else {
+          parsedSongs.push({
+            id: Math.random().toString(),
+            title: cleanTitle,
+            artist: '',
+            tone: 'Desconocido',
+            version: '',
+            youtubeUrl: '',
+            leadSingerId: '',
+            section: currentSectionId
+          });
+        }
+      }
+    }
+  }
+  
+  return parsedSongs;
+};
 
 export default function DateDetails() {
   const router = useRouter();
@@ -44,6 +182,11 @@ export default function DateDetails() {
   
   // Drag and Drop
   const [draggedSongId, setDraggedSongId] = useState<string | null>(null);
+
+  // States for Quick Text-based Editing
+  const [editMode, setEditMode] = useState<'advanced' | 'quick'>('advanced');
+  const [quickText, setQuickText] = useState('');
+  const [isSavingQuick, setIsSavingQuick] = useState(false);
 
   useEffect(() => {
     const userStr = localStorage.getItem('currentUser');
@@ -308,6 +451,52 @@ if (!currentUser || !dateInfo) return <div className="flex items-center justify-
     setDateInfo(updated);
   };
 
+  // --- Quick Edit Handlers ---
+  const handleSwitchToQuickMode = () => {
+    if (!dateInfo) return;
+    if (dateInfo.songs.length === 0) {
+      const template = activeSections.map(s => `${s.name}\n\n`).join('\n');
+      setQuickText(template);
+    } else {
+      setQuickText(generatePlainTextSetlist(dateInfo.songs, activeSections));
+    }
+    setEditMode('quick');
+  };
+
+  const handleSaveQuickSetlist = async () => {
+    if (!dateInfo || !canEditSongs) return;
+    setIsSavingQuick(true);
+    try {
+      const parsed = parsePlainTextSetlist(
+        quickText,
+        activeSections,
+        dateInfo.songs,
+        librarySongs,
+        dateInfo.directorId
+      );
+
+      const updated = { ...dateInfo, songs: parsed };
+      await store.updateServiceDate(updated);
+      setDateInfo(updated);
+
+      // Sincronizar canciones nuevas a la biblioteca
+      const previousTitles = new Set(dateInfo.songs.map(s => normalizeText(s.title)));
+      for (const song of parsed) {
+        const isNew = !previousTitles.has(normalizeText(song.title));
+        if (isNew) {
+          await store.addOrUpdateLibrarySong(song);
+        }
+      }
+
+      setEditMode('advanced');
+    } catch (err) {
+      console.error('Error saving quick setlist:', err);
+      alert('Hubo un error al guardar el bosquejo.');
+    } finally {
+      setIsSavingQuick(false);
+    }
+  };
+
   // --- Suggestion Handlers ---
   const handleAddSuggestion = async () => {
     if (!newSuggestion.title || !currentUser) return;
@@ -567,257 +756,330 @@ if (!currentUser || !dateInfo) return <div className="flex items-center justify-
                   </a>
                 )}
              </div>
-             
-             <div className="space-y-6 flex-1">
-               {(() => {
-                 const activeSections = settings?.sections?.filter(s => s.active) || [];
-                 const validSectionIds = new Set(activeSections.map(s => s.id));
-                 const hasOrphanSongs = dateInfo.songs.some(s => !s.section || !validSectionIds.has(s.section));
+
+             {/* Selector de Modo de Edición */}
+             {canEditSongs && (
+               <div className="mb-4 flex bg-neutral-950 p-1 rounded-xl border border-neutral-800 w-fit">
+                 <button 
+                   onClick={() => setEditMode('advanced')} 
+                   className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${editMode === 'advanced' ? 'bg-pink-600 text-white shadow' : 'text-neutral-400 hover:text-white'}`}
+                 >
+                   <List className="w-3.5 h-3.5" />
+                   <span>Edición Detallada</span>
+                 </button>
+                 <button 
+                   onClick={handleSwitchToQuickMode} 
+                   className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${editMode === 'quick' ? 'bg-pink-600 text-white shadow' : 'text-neutral-400 hover:text-white'}`}
+                 >
+                   <FileText className="w-3.5 h-3.5" />
+                   <span>Edición Rápida (Texto)</span>
+                 </button>
+               </div>
+             )}
+
+             {editMode === 'quick' ? (
+               <div className="space-y-4 flex-1 flex flex-col">
+                 <div className="bg-neutral-950/50 border border-neutral-800 rounded-xl p-4 text-xs text-neutral-400 space-y-2 leading-relaxed">
+                   <p className="font-semibold text-pink-400 flex items-center gap-1.5">
+                     <Lightbulb className="w-4 h-4" /> Instrucciones para la Edición Rápida:
+                   </p>
+                   <ul className="list-disc pl-5 space-y-1">
+                     <li>Escribe el nombre de la sección (ej. <strong className="text-white">Alabanzas</strong>, <strong className="text-white">Adoración</strong>) en su propia línea.</li>
+                     <li>Coloca cada canción en una línea debajo de su sección correspondiente.</li>
+                     <li>Para medleys o canciones continuas en una sola línea, sepáralas usando una diagonal <strong className="text-white">/</strong> (ej: <code className="bg-neutral-900/80 px-1 py-0.5 rounded font-mono text-pink-300">Canción A / Canción B</code>).</li>
+                     <li>Si la canción ya existe en la biblioteca, al guardar se cargarán automáticamente su artista, tono preferido/original y URL de YouTube.</li>
+                   </ul>
+                 </div>
                  
-                 const sectionsToRender = [...activeSections];
-                 if (hasOrphanSongs) {
-                   sectionsToRender.push({ id: 'OTHER', name: 'Otras / Sin Clasificar', active: true });
-                 }
+                 <div className="flex-1 flex flex-col">
+                   <textarea
+                     value={quickText}
+                     onChange={(e) => setQuickText(e.target.value)}
+                     className="w-full flex-1 bg-neutral-950 border border-neutral-800 rounded-2xl p-4 text-sm text-white focus:outline-none focus:ring-1 focus:ring-pink-500 font-mono resize-y min-h-[350px]"
+                     placeholder={`Alabanzas\nCanción 1\nCanción 2\n\nAdoración\nCanción 3 / Canción 4`}
+                     disabled={isSavingQuick}
+                   />
+                 </div>
+                 
+                 <div className="flex gap-3 justify-end pt-2">
+                   <button 
+                     onClick={() => setEditMode('advanced')} 
+                     disabled={isSavingQuick}
+                     className="px-5 py-2.5 text-sm font-bold text-neutral-400 hover:text-white transition-colors hover:bg-neutral-800 rounded-xl"
+                   >
+                     Cancelar
+                   </button>
+                   <button 
+                     onClick={handleSaveQuickSetlist}
+                     disabled={isSavingQuick}
+                     className="px-6 py-2.5 bg-pink-600 hover:bg-pink-700 text-white text-sm font-bold rounded-xl transition-all shadow-[0_0_15px_rgba(236,72,153,0.3)] flex items-center justify-center gap-2"
+                   >
+                     {isSavingQuick ? (
+                       <>
+                         <Loader2 className="w-4 h-4 animate-spin" />
+                         <span>Guardando...</span>
+                       </>
+                     ) : (
+                       <>
+                         <Save className="w-4 h-4" />
+                         <span>Guardar Cambios</span>
+                       </>
+                     )}
+                   </button>
+                 </div>
+               </div>
+             ) : (
+               <div className="space-y-6 flex-1">
+                 {(() => {
+                   const activeSections = settings?.sections?.filter(s => s.active) || [];
+                   const validSectionIds = new Set(activeSections.map(s => s.id));
+                   const hasOrphanSongs = dateInfo.songs.some(s => !s.section || !validSectionIds.has(s.section));
+                   
+                   const sectionsToRender = [...activeSections];
+                   if (hasOrphanSongs) {
+                     sectionsToRender.push({ id: 'OTHER', name: 'Otras / Sin Clasificar', active: true });
+                   }
 
-                 return sectionsToRender.map(section => {
-                   const sectionSongs = dateInfo.songs.filter(s => {
-                     if (section.id === 'OTHER') return !s.section || !validSectionIds.has(s.section);
-                     return s.section === section.id;
-                   });
+                   return sectionsToRender.map(section => {
+                     const sectionSongs = dateInfo.songs.filter(s => {
+                       if (section.id === 'OTHER') return !s.section || !validSectionIds.has(s.section);
+                       return s.section === section.id;
+                     });
 
-                   const isAddingHere = addingInSectionId === section.id;
+                     const isAddingHere = addingInSectionId === section.id;
 
-                   return (
-                     <div 
-                       key={section.id} 
-                       onDragOver={handleDragOver}
-                       onDrop={(e) => handleDropOnSection(e, section.id)}
-                       className="bg-neutral-900/50 p-4 rounded-2xl border border-neutral-800 border-dashed"
-                     >
-                       <div className="flex justify-between items-center mb-3">
-                         <h4 className="text-sm font-bold text-neutral-400 uppercase tracking-widest">{section.name}</h4>
-                         {canEditSongs && section.id !== 'OTHER' && !isAddingHere && (
-                           <button onClick={() => setAddingInSectionId(section.id)} className="text-xs flex items-center text-pink-500 hover:text-pink-400 font-bold bg-pink-500/10 hover:bg-pink-500/20 px-2 py-1 rounded transition-colors">
-                             <Plus className="w-3 h-3 mr-1"/> Añadir
-                           </button>
-                         )}
-                       </div>
-                       
-                       {sectionSongs.length === 0 && !isAddingHere ? (
-                         <div className="py-4 text-center text-xs text-neutral-600 bg-neutral-950/50 rounded-lg">Arrastra canciones o añade una nueva</div>
-                       ) : (
-                         <div className="space-y-3">
-                           {sectionSongs.map((song) => {
-                             const globalIndex = dateInfo.songs.findIndex(s => s.id === song.id);
-                             const leadSingerName = allUsers.find(u => u.id === song.leadSingerId)?.name;
-                             const isEditing = editingSongId === song.id;
-                             const isDragging = draggedSongId === song.id;
-                             
-                             if (isEditing) {
-                               return (
-                                 <div key={song.id} className="bg-neutral-900 border border-pink-500/50 rounded-xl p-4 animate-fade-in shadow-[0_0_15px_rgba(236,72,153,0.1)]">
-                                   <h4 className="text-sm font-semibold text-pink-400 mb-3 flex items-center"><Edit2 className="w-4 h-4 mr-2"/> Editando Canción</h4>
-                                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                                     <div className="col-span-2">
-                                       <label className="text-[10px] uppercase text-neutral-500 font-bold mb-1 block">Título</label>
-                                       <input value={editSongData.title} onChange={e => setEditSongData({...editSongData, title: e.target.value})} type="text" className="w-full bg-neutral-950 border border-neutral-700 rounded-md p-2 text-sm text-white focus:border-pink-500" placeholder="Título *" />
-                                     </div>
-                                     <div className="col-span-2 md:col-span-1">
-                                       <label className="text-[10px] uppercase text-pink-500 font-bold mb-1 block">Sección</label>
-                                       <select value={editSongData.section || 'OTHER'} onChange={e => setEditSongData({...editSongData, section: e.target.value})} className="w-full bg-neutral-950 border border-pink-500/30 rounded-md p-2 text-sm text-pink-100 focus:border-pink-500">
-                                         {activeSections.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                                         <option value="OTHER">Otras / Sin Clasificar</option>
-                                       </select>
-                                     </div>
-                                     <div className="col-span-2 md:col-span-1">
-                                       <label className="text-[10px] uppercase text-neutral-500 font-bold mb-1 block">Líder / Solo</label>
-                                       <select value={editSongData.leadSingerId || ''} onChange={e => setEditSongData({...editSongData, leadSingerId: e.target.value})} className="w-full bg-neutral-950 border border-neutral-700 rounded-md p-2 text-sm text-pink-200">
-                                         <option value="">-- Coro Unísono --</option>
-                                         {singingTeam.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-                                       </select>
-                                     </div>
-                                     <div className="col-span-1 md:col-span-1">
-                                       <label className="text-[10px] uppercase text-neutral-500 font-bold mb-1 block">Tono</label>
-                                       <input value={editSongData.tone} onChange={e => setEditSongData({...editSongData, tone: e.target.value})} type="text" className="w-full bg-neutral-950 border border-neutral-700 rounded-md p-2 text-sm text-white font-mono" placeholder="Tono" />
-                                     </div>
-                                     <div className="col-span-1 md:col-span-1">
-                                       <label className="text-[10px] uppercase text-neutral-500 font-bold mb-1 block">Artista</label>
-                                       <input value={editSongData.artist} onChange={e => setEditSongData({...editSongData, artist: e.target.value})} type="text" className="w-full bg-neutral-950 border border-neutral-700 rounded-md p-2 text-sm text-white" placeholder="Artista" />
-                                     </div>
-                                     <div className="col-span-2 md:col-span-3">
-                                       <label className="text-[10px] uppercase text-red-500 font-bold mb-1 block">URL YouTube</label>
-                                       <input value={editSongData.youtubeUrl || ""} onChange={e => setEditSongData({...editSongData, youtubeUrl: e.target.value})} type="url" className="w-full bg-neutral-950 border border-neutral-700 rounded-md p-2 text-sm text-red-200 focus:border-red-500 focus:outline-none" placeholder="https://youtube.com/watch?v=..." />
-                                     </div>
-                                     <div className="col-span-2 md:col-span-1 flex items-end">
-                                       <button onClick={() => setEditingSongId(null)} className="w-full py-2 text-neutral-400 hover:text-white hover:bg-neutral-800 rounded-lg text-sm font-bold transition-colors">Cancelar</button>
-                                     </div>
-                                     <div className="col-span-2 md:col-span-4 flex">
-                                       <button onClick={handleSaveEdit} className="w-full py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-bold transition-colors flex items-center justify-center"><Save className="w-4 h-4 mr-2"/> Guardar Cambios</button>
+                     return (
+                       <div 
+                         key={section.id} 
+                         onDragOver={handleDragOver}
+                         onDrop={(e) => handleDropOnSection(e, section.id)}
+                         className="bg-neutral-900/50 p-4 rounded-2xl border border-neutral-800 border-dashed"
+                       >
+                         <div className="flex justify-between items-center mb-3">
+                           <h4 className="text-sm font-bold text-neutral-400 uppercase tracking-widest">{section.name}</h4>
+                           {canEditSongs && section.id !== 'OTHER' && !isAddingHere && (
+                             <button onClick={() => setAddingInSectionId(section.id)} className="text-xs flex items-center text-pink-500 hover:text-pink-400 font-bold bg-pink-500/10 hover:bg-pink-500/20 px-2 py-1 rounded transition-colors">
+                               <Plus className="w-3 h-3 mr-1"/> Añadir
+                             </button>
+                           )}
+                         </div>
+                         
+                         {sectionSongs.length === 0 && !isAddingHere ? (
+                           <div className="py-4 text-center text-xs text-neutral-600 bg-neutral-950/50 rounded-lg">Arrastra canciones o añade una nueva</div>
+                         ) : (
+                           <div className="space-y-3">
+                             {sectionSongs.map((song) => {
+                               const globalIndex = dateInfo.songs.findIndex(s => s.id === song.id);
+                               const leadSingerName = allUsers.find(u => u.id === song.leadSingerId)?.name;
+                               const isEditing = editingSongId === song.id;
+                               const isDragging = draggedSongId === song.id;
+                               
+                               if (isEditing) {
+                                 return (
+                                   <div key={song.id} className="bg-neutral-900 border border-pink-500/50 rounded-xl p-4 animate-fade-in shadow-[0_0_15px_rgba(236,72,153,0.1)]">
+                                     <h4 className="text-sm font-semibold text-pink-400 mb-3 flex items-center"><Edit2 className="w-4 h-4 mr-2"/> Editando Canción</h4>
+                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                       <div className="col-span-2">
+                                         <label className="text-[10px] uppercase text-neutral-500 font-bold mb-1 block">Título</label>
+                                         <input value={editSongData.title} onChange={e => setEditSongData({...editSongData, title: e.target.value})} type="text" className="w-full bg-neutral-950 border border-neutral-700 rounded-md p-2 text-sm text-white focus:border-pink-500" placeholder="Título *" />
+                                       </div>
+                                       <div className="col-span-2 md:col-span-1">
+                                         <label className="text-[10px] uppercase text-pink-500 font-bold mb-1 block">Sección</label>
+                                         <select value={editSongData.section || 'OTHER'} onChange={e => setEditSongData({...editSongData, section: e.target.value})} className="w-full bg-neutral-950 border border-pink-500/30 rounded-md p-2 text-sm text-pink-100 focus:border-pink-500">
+                                           {activeSections.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                           <option value="OTHER">Otras / Sin Clasificar</option>
+                                         </select>
+                                       </div>
+                                       <div className="col-span-2 md:col-span-1">
+                                         <label className="text-[10px] uppercase text-neutral-500 font-bold mb-1 block">Líder / Solo</label>
+                                         <select value={editSongData.leadSingerId || ''} onChange={e => setEditSongData({...editSongData, leadSingerId: e.target.value})} className="w-full bg-neutral-950 border border-neutral-700 rounded-md p-2 text-sm text-pink-200">
+                                           <option value="">-- Coro Unísono --</option>
+                                           {singingTeam.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                                         </select>
+                                       </div>
+                                       <div className="col-span-1 md:col-span-1">
+                                         <label className="text-[10px] uppercase text-neutral-500 font-bold mb-1 block">Tono</label>
+                                         <input value={editSongData.tone} onChange={e => setEditSongData({...editSongData, tone: e.target.value})} type="text" className="w-full bg-neutral-950 border border-neutral-700 rounded-md p-2 text-sm text-white font-mono" placeholder="Tono" />
+                                       </div>
+                                       <div className="col-span-1 md:col-span-1">
+                                         <label className="text-[10px] uppercase text-neutral-500 font-bold mb-1 block">Artista</label>
+                                         <input value={editSongData.artist} onChange={e => setEditSongData({...editSongData, artist: e.target.value})} type="text" className="w-full bg-neutral-950 border border-neutral-700 rounded-md p-2 text-sm text-white" placeholder="Artista" />
+                                       </div>
+                                       <div className="col-span-2 md:col-span-3">
+                                         <label className="text-[10px] uppercase text-red-500 font-bold mb-1 block">URL YouTube</label>
+                                         <input value={editSongData.youtubeUrl || ""} onChange={e => setEditSongData({...editSongData, youtubeUrl: e.target.value})} type="url" className="w-full bg-neutral-950 border border-neutral-700 rounded-md p-2 text-sm text-red-200 focus:border-red-500 focus:outline-none" placeholder="https://youtube.com/watch?v=..." />
+                                       </div>
+                                       <div className="col-span-2 md:col-span-1 flex items-end">
+                                         <button onClick={() => setEditingSongId(null)} className="w-full py-2 text-neutral-400 hover:text-white hover:bg-neutral-800 rounded-lg text-sm font-bold transition-colors">Cancelar</button>
+                                       </div>
+                                       <div className="col-span-2 md:col-span-4 flex">
+                                         <button onClick={handleSaveEdit} className="w-full py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-bold transition-colors flex items-center justify-center"><Save className="w-4 h-4 mr-2"/> Guardar Cambios</button>
+                                       </div>
                                      </div>
                                    </div>
-                                 </div>
-                               );
-                             }
+                                 );
+                               }
 
-                             return (
-                             <div 
-                               key={song.id} 
-                               draggable={canEditSongs && !editingSongId}
-                               onDragStart={(e) => handleDragStart(e, song.id)}
-                               onDragOver={handleDragOver}
-                               onDrop={(e) => { e.stopPropagation(); handleDrop(e, song.id); }}
-                               className={`flex flex-col sm:flex-row sm:items-stretch justify-between bg-neutral-950 border rounded-xl overflow-hidden group transition-all duration-200 ${canEditSongs && !editingSongId ? 'cursor-grab active:cursor-grabbing hover:border-pink-500/50' : ''} ${isDragging ? 'opacity-50 ring-2 ring-pink-500 border-pink-500 scale-[0.98]' : 'border-neutral-800'}`}
-                             >
-                                <div className="flex flex-1">
-                                  {/* Number */}
-                                  <div className="bg-neutral-900 border-r border-neutral-800 w-12 flex items-center justify-center font-black text-neutral-600 text-lg shrink-0">
-                                    {globalIndex + 1}
-                                  </div>
-                                  
-                                  {/* Song Info */}
-                                  <div className="p-4 flex-1">
-                                    <h4 className="text-white font-bold text-xl leading-tight mb-1 flex flex-wrap items-center gap-2">
-                                      {song.title}
-                                      {(() => {
-                                        const otherUses = checkOtherMonthUses(song.title);
-                                        if (otherUses.length > 0) {
-                                          return (
-                                            <span className="text-[10px] font-medium bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 px-2 py-0.5 rounded flex items-center shadow-sm mt-1 sm:mt-0" title="Canción repetida en el mes">
-                                              <AlertTriangle className="w-3 h-3 mr-1 shrink-0" />
-                                              {otherUses.length > 1 ? 'Usada en: ' : 'En '} {otherUses.join(', ')}
-                                            </span>
-                                          )
-                                        }
-                                        return null;
-                                      })()}
-                                    </h4>
-                                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-2">
-                                       <div className="bg-pink-900/40 border border-pink-500/30 text-pink-300 text-xs font-bold px-2.5 py-1 rounded-md flex items-center shadow-inner">
-                                          <span className="opacity-70 mr-1.5 uppercase text-[9px] tracking-wider">Voz Lead:</span> {leadSingerName || 'Todos (Coro)'}
-                                       </div>
-                                       
-                                       <span className="text-xs bg-neutral-800 text-neutral-300 px-2 py-1 rounded font-mono font-semibold">Tono: <span className="text-white text-sm ml-1">{song.tone}</span></span>
-                                       
-                                       <span className="text-sm text-neutral-500 flex items-center"><span className="w-1.5 h-1.5 rounded-full bg-neutral-700 mr-2"></span>{song.artist}</span>
-                                       {song.version && <span className="text-sm text-neutral-500 flex items-center"><span className="w-1.5 h-1.5 rounded-full bg-neutral-700 mr-2"></span>{song.version}</span>}
+                               return (
+                               <div 
+                                 key={song.id} 
+                                 draggable={canEditSongs && !editingSongId}
+                                 onDragStart={(e) => handleDragStart(e, song.id)}
+                                 onDragOver={handleDragOver}
+                                 onDrop={(e) => { e.stopPropagation(); handleDrop(e, song.id); }}
+                                 className={`flex flex-col sm:flex-row sm:items-stretch justify-between bg-neutral-950 border rounded-xl overflow-hidden group transition-all duration-200 ${canEditSongs && !editingSongId ? 'cursor-grab active:cursor-grabbing hover:border-pink-500/50' : ''} ${isDragging ? 'opacity-50 ring-2 ring-pink-500 border-pink-500 scale-[0.98]' : 'border-neutral-800'}`}
+                               >
+                                  <div className="flex flex-1">
+                                    {/* Number */}
+                                    <div className="bg-neutral-900 border-r border-neutral-800 w-12 flex items-center justify-center font-black text-neutral-600 text-lg shrink-0">
+                                      {globalIndex + 1}
+                                    </div>
+                                    
+                                    {/* Song Info */}
+                                    <div className="p-4 flex-1">
+                                      <h4 className="text-white font-bold text-xl leading-tight mb-1 flex flex-wrap items-center gap-2">
+                                        {song.title}
+                                        {(() => {
+                                          const otherUses = checkOtherMonthUses(song.title);
+                                          if (otherUses.length > 0) {
+                                            return (
+                                              <span className="text-[10px] font-medium bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 px-2 py-0.5 rounded flex items-center shadow-sm mt-1 sm:mt-0" title="Canción repetida en el mes">
+                                                <AlertTriangle className="w-3 h-3 mr-1 shrink-0" />
+                                                {otherUses.length > 1 ? 'Usada en: ' : 'En '} {otherUses.join(', ')}
+                                              </span>
+                                            )
+                                          }
+                                          return null;
+                                        })()}
+                                      </h4>
+                                      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-2">
+                                         <div className="bg-pink-900/40 border border-pink-500/30 text-pink-300 text-xs font-bold px-2.5 py-1 rounded-md flex items-center shadow-inner">
+                                            <span className="opacity-70 mr-1.5 uppercase text-[9px] tracking-wider">Voz Lead:</span> {leadSingerName || 'Todos (Coro)'}
+                                         </div>
+                                         
+                                         <span className="text-xs bg-neutral-800 text-neutral-300 px-2 py-1 rounded font-mono font-semibold">Tono: <span className="text-white text-sm ml-1">{song.tone}</span></span>
+                                         
+                                         <span className="text-sm text-neutral-500 flex items-center"><span className="w-1.5 h-1.5 rounded-full bg-neutral-700 mr-2"></span>{song.artist}</span>
+                                         {song.version && <span className="text-sm text-neutral-500 flex items-center"><span className="w-1.5 h-1.5 rounded-full bg-neutral-700 mr-2"></span>{song.version}</span>}
+                                      </div>
                                     </div>
                                   </div>
+                                  
+                                  {/* Actions */}
+                                  <div className="flex items-center sm:border-l border-t sm:border-t-0 p-3 sm:p-4 border-neutral-800 justify-end bg-neutral-950/50 sm:bg-transparent">
+                                    {song.youtubeUrl && (
+                                      <a href={song.youtubeUrl} target="_blank" rel="noreferrer" className="w-10 h-10 flex items-center justify-center bg-red-500/10 text-red-500 rounded-lg hover:bg-red-500/20 transition-colors shrink-0">
+                                         <Play className="w-5 h-5 ml-0.5" /> 
+                                      </a>
+                                    )}
+                                    {canEditSongs && (
+                                      <>
+                                        <button onClick={() => handleStartEdit(song)} className="w-10 h-10 ml-2 flex items-center justify-center text-neutral-500 hover:text-white hover:bg-neutral-800 rounded-lg transition-colors shrink-0 tooltip">
+                                          <Edit2 className="w-4 h-4" />
+                                        </button>
+                                        <button onClick={() => handleDeleteSong(song.id)} className="w-10 h-10 ml-2 flex items-center justify-center text-neutral-500 hover:text-red-400 hover:bg-neutral-800 rounded-lg transition-colors shrink-0">
+                                          <Trash2 className="w-5 h-5" />
+                                        </button>
+                                      </>
+                                    )}
+                                  </div>
+                               </div>
+                             )})}
+                           </div>
+                         )}
+
+                         {/* Inline New Song Form */}
+                         {isAddingHere && (
+                           <div className="mt-4 pt-4 border-t border-neutral-800">
+                             <div className="flex items-center justify-between mb-3">
+                               <h4 className="text-sm font-semibold text-pink-400 flex items-center"><Plus className="w-4 h-4 mr-1"/> Añadir a {section.name}</h4>
+                               <button onClick={() => { setAddingInSectionId(null); setNewSong({ title: '', artist: '', tone: '', version: '', youtubeUrl: '', leadSingerId: '', section: '' }); }} className="text-neutral-500 hover:text-white"><X className="w-4 h-4"/></button>
+                             </div>
+                             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-neutral-950 p-4 rounded-xl border border-pink-500/30 shadow-inner relative">
+                               <div className="col-span-2 relative">
+                                 <label className="block text-xs text-neutral-500 mb-1 font-medium">Nombre de la Canción *</label>
+                                 <input 
+                                    value={newSong.title} 
+                                    onChange={e => handleTitleChange(e.target.value)} 
+                                    onFocus={() => setShowSuggestions(newSong?.title ? newSong.title.length > 1 : false)}
+                                    onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                                    type="text" 
+                                    className="w-full bg-neutral-900 border border-neutral-700 rounded-md p-2 text-sm text-white focus:outline-none focus:border-pink-500 focus:bg-neutral-950 transition-colors relative z-10" 
+                                    placeholder="Ej. Digno" 
+                                    autoFocus
+                                 />
+                                 
+                                 {showSuggestions && (
+                                    <div className="absolute top-full mt-1 w-full max-h-48 overflow-y-auto bg-neutral-800 border border-neutral-700 rounded-lg shadow-xl z-20 flex flex-col">
+                                       {librarySongs.filter(s => s.title.toLowerCase().includes(newSong.title?.toLowerCase() || '')).map(sugg => (
+                                          <button
+                                            key={sugg.id}
+                                            onClick={(e) => { e.preventDefault(); selectSuggestion(sugg); }}
+                                            className="text-left px-3 py-2 text-sm text-white hover:bg-pink-600 transition-colors border-b border-neutral-700/50 last:border-0 flex justify-between items-center"
+                                          >
+                                            <span className="font-bold">{sugg.title}</span>
+                                            <span className="text-[10px] text-pink-200 capitalize opacity-70">{sugg.artist}</span>
+                                          </button>
+                                       ))}
+                                    </div>
+                                 )}
+                                 
+                                 {duplicationWarning.length > 0 && (
+                                    <div className="mt-2 text-xs text-yellow-500 bg-yellow-500/10 p-2 rounded relative z-0 flex items-start">
+                                       <AlertTriangle className="w-3 h-3 mr-1 mt-0.5 shrink-0" />
+                                       <span>Advertencia: Ya se usó este mes en: <strong>{duplicationWarning.join(', ')}</strong></span>
+                                    </div>
+                                  )}
                                 </div>
                                 
-                                {/* Actions */}
-                                <div className="flex items-center sm:border-l border-t sm:border-t-0 p-3 sm:p-4 border-neutral-800 justify-end bg-neutral-950/50 sm:bg-transparent">
-                                  {song.youtubeUrl && (
-                                    <a href={song.youtubeUrl} target="_blank" rel="noreferrer" className="w-10 h-10 flex items-center justify-center bg-red-500/10 text-red-500 rounded-lg hover:bg-red-500/20 transition-colors shrink-0">
-                                       <Play className="w-5 h-5 ml-0.5" /> 
-                                    </a>
-                                  )}
-                                  {canEditSongs && (
-                                    <>
-                                      <button onClick={() => handleStartEdit(song)} className="w-10 h-10 ml-2 flex items-center justify-center text-neutral-500 hover:text-white hover:bg-neutral-800 rounded-lg transition-colors shrink-0 tooltip">
-                                        <Edit2 className="w-4 h-4" />
-                                      </button>
-                                      <button onClick={() => handleDeleteSong(song.id)} className="w-10 h-10 ml-2 flex items-center justify-center text-neutral-500 hover:text-red-400 hover:bg-neutral-800 rounded-lg transition-colors shrink-0">
-                                        <Trash2 className="w-5 h-5" />
-                                      </button>
-                                    </>
-                                  )}
+                                <div className="col-span-2 md:col-span-2">
+                                  <label className="block text-xs text-neutral-400 mb-1 font-medium">Voz Principal</label>
+                                  <select 
+                                    value={newSong.leadSingerId || ''} 
+                                    onChange={e => setNewSong({...newSong, leadSingerId: e.target.value})} 
+                                    className="w-full bg-neutral-900 border border-neutral-700 rounded-md p-2 text-sm text-white focus:outline-none focus:border-pink-500 focus:bg-neutral-950 transition-colors text-pink-100"
+                                  >
+                                    <option value="">-- Coro Unísono --</option>
+                                    {singingTeam.map(u => (
+                                       <option key={u.id} value={u.id}>{u.name} {u.id === dateInfo.directorId ? '(Director)' : ''}</option>
+                                    ))}
+                                  </select>
                                 </div>
-                             </div>
-                           )})}
-                         </div>
-                       )}
 
-                       {/* Inline New Song Form */}
-                       {isAddingHere && (
-                         <div className="mt-4 pt-4 border-t border-neutral-800">
-                           <div className="flex items-center justify-between mb-3">
-                             <h4 className="text-sm font-semibold text-pink-400 flex items-center"><Plus className="w-4 h-4 mr-1"/> Añadir a {section.name}</h4>
-                             <button onClick={() => { setAddingInSectionId(null); setNewSong({ title: '', artist: '', tone: '', version: '', youtubeUrl: '', leadSingerId: '', section: '' }); }} className="text-neutral-500 hover:text-white"><X className="w-4 h-4"/></button>
-                           </div>
-                           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-neutral-950 p-4 rounded-xl border border-pink-500/30 shadow-inner relative">
-                             <div className="col-span-2 relative">
-                               <label className="block text-xs text-neutral-500 mb-1 font-medium">Nombre de la Canción *</label>
-                               <input 
-                                  value={newSong.title} 
-                                  onChange={e => handleTitleChange(e.target.value)} 
-                                  onFocus={() => setShowSuggestions(newSong?.title ? newSong.title.length > 1 : false)}
-                                  onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-                                  type="text" 
-                                  className="w-full bg-neutral-900 border border-neutral-700 rounded-md p-2 text-sm text-white focus:outline-none focus:border-pink-500 focus:bg-neutral-950 transition-colors relative z-10" 
-                                  placeholder="Ej. Digno" 
-                                  autoFocus
-                               />
-                               
-                               {showSuggestions && (
-                                  <div className="absolute top-full mt-1 w-full max-h-48 overflow-y-auto bg-neutral-800 border border-neutral-700 rounded-lg shadow-xl z-20 flex flex-col">
-                                     {librarySongs.filter(s => s.title.toLowerCase().includes(newSong.title?.toLowerCase() || '')).map(sugg => (
-                                        <button
-                                          key={sugg.id}
-                                          onClick={(e) => { e.preventDefault(); selectSuggestion(sugg); }}
-                                          className="text-left px-3 py-2 text-sm text-white hover:bg-pink-600 transition-colors border-b border-neutral-700/50 last:border-0 flex justify-between items-center"
-                                        >
-                                          <span className="font-bold">{sugg.title}</span>
-                                          <span className="text-[10px] text-pink-200 capitalize opacity-70">{sugg.artist}</span>
-                                        </button>
-                                     ))}
-                                  </div>
-                               )}
-                               
-                               {duplicationWarning.length > 0 && (
-                                  <div className="mt-2 text-xs text-yellow-500 bg-yellow-500/10 p-2 rounded relative z-0 flex items-start">
-                                     <AlertTriangle className="w-3 h-3 mr-1 mt-0.5 shrink-0" />
-                                     <span>Advertencia: Ya se usó este mes en: <strong>{duplicationWarning.join(', ')}</strong></span>
-                                  </div>
-                               )}
-                             </div>
-                             
-                             <div className="col-span-2 md:col-span-2">
-                               <label className="block text-xs text-neutral-400 mb-1 font-medium">Voz Principal</label>
-                               <select 
-                                 value={newSong.leadSingerId || ''} 
-                                 onChange={e => setNewSong({...newSong, leadSingerId: e.target.value})} 
-                                 className="w-full bg-neutral-900 border border-neutral-700 rounded-md p-2 text-sm text-white focus:outline-none focus:border-pink-500 focus:bg-neutral-950 transition-colors text-pink-100"
-                               >
-                                 <option value="">-- Coro Unísono --</option>
-                                 {singingTeam.map(u => (
-                                    <option key={u.id} value={u.id}>{u.name} {u.id === dateInfo.directorId ? '(Director)' : ''}</option>
-                                 ))}
-                               </select>
-                             </div>
+                                <div className="col-span-2 md:col-span-2">
+                                  <label className="block text-xs text-neutral-500 mb-1 font-medium">Artista Original</label>
+                                  <input value={newSong.artist} onChange={e => setNewSong({...newSong, artist: e.target.value})} type="text" className="w-full bg-neutral-900 border border-neutral-700 rounded-md p-2 text-sm text-white focus:outline-none focus:border-pink-500 focus:bg-neutral-950" placeholder="Ej. Marcos Brunet" />
+                                </div>
+                                
+                                <div className="col-span-1 md:col-span-1">
+                                  <label className="block text-xs text-neutral-500 mb-1 font-medium">Tono Base</label>
+                                  <input value={newSong.tone} onChange={e => setNewSong({...newSong, tone: e.target.value})} type="text" className="w-full bg-neutral-900 border border-neutral-700 rounded-md p-2 text-sm text-white focus:outline-none focus:border-pink-500 font-mono font-bold" placeholder="Ej. A#" />
+                                </div>
 
-                             <div className="col-span-2 md:col-span-2">
-                               <label className="block text-xs text-neutral-500 mb-1 font-medium">Artista Original</label>
-                               <input value={newSong.artist} onChange={e => setNewSong({...newSong, artist: e.target.value})} type="text" className="w-full bg-neutral-900 border border-neutral-700 rounded-md p-2 text-sm text-white focus:outline-none focus:border-pink-500 focus:bg-neutral-950" placeholder="Ej. Marcos Brunet" />
-                             </div>
-                             
-                             <div className="col-span-1 md:col-span-1">
-                               <label className="block text-xs text-neutral-500 mb-1 font-medium">Tono Base</label>
-                               <input value={newSong.tone} onChange={e => setNewSong({...newSong, tone: e.target.value})} type="text" className="w-full bg-neutral-900 border border-neutral-700 rounded-md p-2 text-sm text-white focus:outline-none focus:border-pink-500 font-mono font-bold" placeholder="Ej. A#" />
-                             </div>
-
-                             <div className="col-span-1 md:col-span-1">
-                               <label className="block text-xs text-neutral-500 mb-1 font-medium">Versión Músical</label>
-                               <input value={newSong.version} onChange={e => setNewSong({...newSong, version: e.target.value})} type="text" className="w-full bg-neutral-900 border border-neutral-700 rounded-md p-2 text-sm text-white focus:outline-none focus:border-pink-500 focus:bg-neutral-950" placeholder="Ej. Acústica" />
-                             </div>
-                             
-                             <div className="col-span-2 md:col-span-3 mt-1">
-                               <label className="block text-xs text-neutral-500 mb-1 font-medium">URL YouTube</label>
-                               <input value={newSong.youtubeUrl} onChange={e => setNewSong({...newSong, youtubeUrl: e.target.value})} type="url" className="w-full bg-neutral-900 border border-neutral-700 rounded-md p-2 text-sm text-white focus:outline-none focus:border-pink-500 focus:bg-neutral-950 text-red-100" placeholder="https://youtube.com/..." />
-                             </div>
-                             
-                             <div className="col-span-2 md:col-span-1 flex items-end mt-1">
-                               <button onClick={() => handleAddSong(section.id)} disabled={!newSong.title} className="w-full py-2 bg-pink-600 hover:bg-pink-700 text-white rounded-lg text-sm font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                                 Guardar
-                               </button>
-                             </div>
-                           </div>
-                         </div>
-                       )}
-                     </div>
-                   );
-                 });
-               })()}
-             </div>
+                                <div className="col-span-1 md:col-span-1">
+                                  <label className="block text-xs text-neutral-500 mb-1 font-medium">Versión Músical</label>
+                                  <input value={newSong.version} onChange={e => setNewSong({...newSong, version: e.target.value})} type="text" className="w-full bg-neutral-900 border border-neutral-700 rounded-md p-2 text-sm text-white focus:outline-none focus:border-pink-500 focus:bg-neutral-950" placeholder="Ej. Acústica" />
+                                </div>
+                                
+                                <div className="col-span-2 md:col-span-3 mt-1">
+                                  <label className="block text-xs text-neutral-500 mb-1 font-medium">URL YouTube</label>
+                                  <input value={newSong.youtubeUrl} onChange={e => setNewSong({...newSong, youtubeUrl: e.target.value})} type="url" className="w-full bg-neutral-900 border border-neutral-700 rounded-md p-2 text-sm text-white focus:outline-none focus:border-pink-500 focus:bg-neutral-950 text-red-100" placeholder="https://youtube.com/..." />
+                                </div>
+                                
+                                <div className="col-span-2 md:col-span-1 flex items-end mt-1">
+                                  <button onClick={() => handleAddSong(section.id)} disabled={!newSong.title} className="w-full py-2 bg-pink-600 hover:bg-pink-700 text-white rounded-lg text-sm font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                                    Guardar
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
+             )}
            </div>
         </div>
       </div>
