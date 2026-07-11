@@ -88,57 +88,53 @@ const parsePlainTextSetlist = (
       continue;
     }
     
-    const songTitles = line.split('/').map(t => t.trim()).filter(Boolean);
+    const cleanTitle = line.replace(/\.$/, '').trim();
+    if (!cleanTitle) continue;
     
-    for (const rawTitle of songTitles) {
-      const cleanTitle = rawTitle.replace(/\.$/, '').trim();
-      if (!cleanTitle) continue;
-      
-      const existingMatch = existingSongs.find(s => 
-        normalizeText(s.title) === normalizeText(cleanTitle)
+    const existingMatch = existingSongs.find(s => 
+      normalizeText(s.title) === normalizeText(cleanTitle)
+    );
+    
+    if (existingMatch) {
+      parsedSongs.push({
+        ...existingMatch,
+        section: currentSectionId
+      });
+    } else {
+      const libraryMatch = librarySongs.find(ls => 
+        normalizeText(ls.title) === normalizeText(cleanTitle) ||
+        normalizeText(stripParentheses(ls.title)) === normalizeText(stripParentheses(cleanTitle))
       );
       
-      if (existingMatch) {
+      if (libraryMatch) {
+        let tone = 'Desconocido';
+        if (directorId && libraryMatch.userPreferredTones && libraryMatch.userPreferredTones[directorId]) {
+          tone = libraryMatch.userPreferredTones[directorId];
+        } else if (libraryMatch.originalTone && libraryMatch.originalTone !== 'Desconocido') {
+          tone = libraryMatch.originalTone;
+        }
+        
         parsedSongs.push({
-          ...existingMatch,
+          id: Math.random().toString(),
+          title: libraryMatch.title,
+          artist: libraryMatch.artist !== 'Desconocido' ? libraryMatch.artist : '',
+          tone: tone,
+          version: '',
+          youtubeUrl: libraryMatch.youtubeUrl || '',
+          leadSingerId: '',
           section: currentSectionId
         });
       } else {
-        const libraryMatch = librarySongs.find(ls => 
-          normalizeText(ls.title) === normalizeText(cleanTitle) ||
-          normalizeText(stripParentheses(ls.title)) === normalizeText(stripParentheses(cleanTitle))
-        );
-        
-        if (libraryMatch) {
-          let tone = 'Desconocido';
-          if (directorId && libraryMatch.userPreferredTones && libraryMatch.userPreferredTones[directorId]) {
-            tone = libraryMatch.userPreferredTones[directorId];
-          } else if (libraryMatch.originalTone && libraryMatch.originalTone !== 'Desconocido') {
-            tone = libraryMatch.originalTone;
-          }
-          
-          parsedSongs.push({
-            id: Math.random().toString(),
-            title: libraryMatch.title,
-            artist: libraryMatch.artist !== 'Desconocido' ? libraryMatch.artist : '',
-            tone: tone,
-            version: '',
-            youtubeUrl: libraryMatch.youtubeUrl || '',
-            leadSingerId: '',
-            section: currentSectionId
-          });
-        } else {
-          parsedSongs.push({
-            id: Math.random().toString(),
-            title: cleanTitle,
-            artist: '',
-            tone: 'Desconocido',
-            version: '',
-            youtubeUrl: '',
-            leadSingerId: '',
-            section: currentSectionId
-          });
-        }
+        parsedSongs.push({
+          id: Math.random().toString(),
+          title: cleanTitle,
+          artist: '',
+          tone: 'Desconocido',
+          version: '',
+          youtubeUrl: '',
+          leadSingerId: '',
+          section: currentSectionId
+        });
       }
     }
   }
@@ -785,8 +781,8 @@ if (!currentUser || !dateInfo) return <div className="flex items-center justify-
                    </p>
                    <ul className="list-disc pl-5 space-y-1">
                      <li>Escribe el nombre de la sección (ej. <strong className="text-white">Alabanzas</strong>, <strong className="text-white">Adoración</strong>) en su propia línea.</li>
-                     <li>Coloca cada canción en una línea debajo de su sección correspondiente.</li>
-                     <li>Para medleys o canciones continuas en una sola línea, sepáralas usando una diagonal <strong className="text-white">/</strong> (ej: <code className="bg-neutral-900/80 px-1 py-0.5 rounded font-mono text-pink-300">Canción A / Canción B</code>).</li>
+                     <li>Coloca cada canción en una línea.</li>
+                     <li>Cadenas o popurrís escritos en una misma línea (ej: <code className="bg-neutral-900/80 px-1 py-0.5 rounded font-mono text-pink-300">Canción A / Canción B</code>) se guardarán como una sola canción en el bosquejo.</li>
                      <li>Si la canción ya existe en la biblioteca, al guardar se cargarán automáticamente su artista, tono preferido/original y URL de YouTube.</li>
                    </ul>
                  </div>
@@ -796,7 +792,7 @@ if (!currentUser || !dateInfo) return <div className="flex items-center justify-
                      value={quickText}
                      onChange={(e) => setQuickText(e.target.value)}
                      className="w-full flex-1 bg-neutral-950 border border-neutral-800 rounded-2xl p-4 text-sm text-white focus:outline-none focus:ring-1 focus:ring-pink-500 font-mono resize-y min-h-[350px]"
-                     placeholder={`Alabanzas\nCanción 1\nCanción 2\n\nAdoración\nCanción 3 / Canción 4`}
+                     placeholder={`Alabanzas\nCanción 1 / Canción 2 (se guarda como una sola entrada)\nCanción 3\n\nAdoración\nCanción 4`}
                      disabled={isSavingQuick}
                    />
                  </div>
