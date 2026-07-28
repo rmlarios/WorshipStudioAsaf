@@ -12,6 +12,7 @@ interface MonthRolesSummaryModalProps {
   currentMonth: Date;
   serviceDates: ServiceDate[];
   allUsers: User[];
+  isDirector: boolean;
 }
 
 export default function MonthRolesSummaryModal({
@@ -20,6 +21,7 @@ export default function MonthRolesSummaryModal({
   currentMonth,
   serviceDates,
   allUsers,
+  isDirector,
 }: MonthRolesSummaryModalProps) {
   const [activeTab, setActiveTab] = useState<'visual' | 'text'>('visual');
   const [includeDayName, setIncludeDayName] = useState(true);
@@ -158,30 +160,32 @@ export default function MonthRolesSummaryModal({
         </div>
 
         {/* Navigation Tabs */}
-        <div className="flex border-b border-neutral-800/40 bg-neutral-950/40 p-1 m-3 rounded-xl border border-neutral-850 shrink-0">
-          <button
-            onClick={() => setActiveTab('visual')}
-            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-bold transition-all ${
-              activeTab === 'visual'
-                ? 'bg-emerald-600 text-white shadow-[0_0_10px_rgba(16,185,129,0.3)]'
-                : 'text-neutral-400 hover:text-white'
-            }`}
-          >
-            <LayoutGrid className="w-4 h-4" />
-            <span>Vista Visual</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('text')}
-            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-bold transition-all ${
-              activeTab === 'text'
-                ? 'bg-emerald-600 text-white shadow-[0_0_10px_rgba(16,185,129,0.3)]'
-                : 'text-neutral-400 hover:text-white'
-            }`}
-          >
-            <FileText className="w-4 h-4" />
-            <span>Texto WhatsApp</span>
-          </button>
-        </div>
+        {isDirector && (
+          <div className="flex border-b border-neutral-800/40 bg-neutral-950/40 p-1 m-3 rounded-xl border border-neutral-850 shrink-0">
+            <button
+              onClick={() => setActiveTab('visual')}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-bold transition-all ${
+                activeTab === 'visual'
+                  ? 'bg-emerald-600 text-white shadow-[0_0_10px_rgba(16,185,129,0.3)]'
+                  : 'text-neutral-400 hover:text-white'
+              }`}
+            >
+              <LayoutGrid className="w-4 h-4" />
+              <span>Vista Visual</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('text')}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-bold transition-all ${
+                activeTab === 'text'
+                  ? 'bg-emerald-600 text-white shadow-[0_0_10px_rgba(16,185,129,0.3)]'
+                  : 'text-neutral-400 hover:text-white'
+              }`}
+            >
+              <FileText className="w-4 h-4" />
+              <span>Texto WhatsApp</span>
+            </button>
+          </div>
+        )}
 
         {/* Body Content */}
         <div className="overflow-y-auto flex-1 px-5 pb-5 custom-scrollbar">
@@ -219,23 +223,23 @@ export default function MonthRolesSummaryModal({
                       </div>
 
                       {/* User Assignments List */}
-                      <div className="flex flex-wrap gap-2 sm:justify-end max-w-full sm:max-w-[60%]">
+                      <div className="flex flex-wrap gap-2 sm:justify-end max-w-full sm:max-w-[65%]">
                         {assignments.length === 0 ? (
                           <span className="text-xs text-neutral-650 italic">Sin asignaciones</span>
                         ) : (
                           assignments.map((assign, idx) => (
                             <div
                               key={idx}
-                              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium border bg-neutral-950/80 border-neutral-800"
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-semibold border bg-neutral-950/80 border-neutral-800/80 shadow-sm hover:scale-[1.02] transition-transform duration-150"
                             >
                               <span
-                                className={`w-1.5 h-1.5 rounded-full ${
-                                  assign.role === 'Presidir' ? 'bg-amber-400' : 'bg-pink-400'
+                                className={`w-2 h-2 rounded-full shrink-0 ${
+                                  assign.role === 'Presidir' ? 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.5)]' : 'bg-pink-400 shadow-[0_0_8px_rgba(244,114,182,0.5)]'
                                 }`}
                               />
-                              <span className="text-neutral-400 font-semibold">{assign.role}</span>
-                              <span className="text-neutral-300">
-                                {format(parseISO(assign.date.dateStr), 'dd/MM')}
+                              <span className="text-neutral-400 font-bold">{assign.role}:</span>
+                              <span className="text-white">
+                                {format(parseISO(assign.date.dateStr), 'EEEE dd/MM', { locale: es }).replace(/^\w/, c => c.toUpperCase())}
                               </span>
                             </div>
                           ))
@@ -313,13 +317,15 @@ export default function MonthRolesSummaryModal({
             >
               Cerrar
             </button>
-            <button
-              onClick={handleShareWhatsApp}
-              className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-650 hover:from-emerald-500 hover:to-teal-550 text-white text-sm font-bold rounded-xl transition-all flex items-center gap-2 shadow-[0_0_15px_rgba(16,185,129,0.25)] hover:scale-[1.02] active:scale-[0.98]"
-            >
-              <MessageSquare className="w-4 h-4" />
-              <span>Enviar a WhatsApp</span>
-            </button>
+            {isDirector && (
+              <button
+                onClick={handleShareWhatsApp}
+                className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-650 hover:from-emerald-500 hover:to-teal-550 text-white text-sm font-bold rounded-xl transition-all flex items-center gap-2 shadow-[0_0_15px_rgba(16,185,129,0.25)] hover:scale-[1.02] active:scale-[0.98]"
+              >
+                <MessageSquare className="w-4 h-4" />
+                <span>Enviar a WhatsApp</span>
+              </button>
+            )}
           </div>
         </div>
       </div>

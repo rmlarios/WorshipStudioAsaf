@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import * as store from '../../lib/firebaseStore';
 import { User, ServiceDate, Availability, SystemSettings, SongSuggestion } from '../../lib/types';
 import Link from 'next/link';
-import { ChevronLeft, ChevronRight, CheckCircle2, Circle, CalendarPlus, CalendarDays, Trash2, Loader2, Eye, FileText, MessageCircle, XCircle, Star, Lightbulb, Plus, Share2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CheckCircle2, Circle, CalendarPlus, CalendarDays, Trash2, Loader2, Eye, FileText, MessageCircle, XCircle, Star, Lightbulb, Plus, Share2, Users } from 'lucide-react';
 import { format, addMonths, subMonths, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, getDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import SetlistPreview from '../../components/SetlistPreview';
@@ -288,14 +288,24 @@ export default function Dashboard() {
               </button>
             )}
           </div>
-          <button 
-            onClick={handleExportPDF} 
-            disabled={isExporting}
-            className="flex items-center space-x-1 text-[10px] text-pink-500 hover:text-pink-400 font-bold uppercase tracking-widest mt-1 transition-all disabled:opacity-50"
-          >
-            {isExporting ? <Loader2 className="w-3 h-3 animate-spin" /> : <FileText className="w-3 h-3" />}
-            <span>Exportar PDF</span>
-          </button>
+          <div className="flex items-center space-x-2.5 mt-1">
+            <button 
+              onClick={handleExportPDF} 
+              disabled={isExporting}
+              className="flex items-center space-x-1 text-[10px] text-pink-500 hover:text-pink-400 font-bold uppercase tracking-widest transition-all disabled:opacity-50"
+            >
+              {isExporting ? <Loader2 className="w-3 h-3 animate-spin" /> : <FileText className="w-3 h-3" />}
+              <span>Exportar PDF</span>
+            </button>
+            <span className="text-neutral-700 text-[10px] select-none">•</span>
+            <button 
+              onClick={() => setShowSummaryModal(true)}
+              className="flex items-center space-x-1 text-[10px] text-emerald-500 hover:text-emerald-400 font-bold uppercase tracking-widest transition-all"
+            >
+              <Users className="w-3 h-3" />
+              <span>Resumen de Roles</span>
+            </button>
+          </div>
         </div>
         <button onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} className="p-2 hover:bg-neutral-800 rounded-full transition-colors">
           <ChevronRight className="w-6 h-6 text-neutral-400" />
@@ -520,6 +530,7 @@ export default function Dashboard() {
         currentMonth={currentMonth}
         serviceDates={serviceDates}
         allUsers={allUsers}
+        isDirector={currentUser.role === 'DIRECTOR'}
       />
 
       {/* Quick Suggestion Modal */}
