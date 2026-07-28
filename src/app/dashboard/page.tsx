@@ -4,10 +4,11 @@ import { useState, useEffect, useCallback } from 'react';
 import * as store from '../../lib/firebaseStore';
 import { User, ServiceDate, Availability, SystemSettings, SongSuggestion } from '../../lib/types';
 import Link from 'next/link';
-import { ChevronLeft, ChevronRight, CheckCircle2, Circle, CalendarPlus, CalendarDays, Trash2, Loader2, Eye, FileText, MessageCircle, XCircle, Star, Lightbulb, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CheckCircle2, Circle, CalendarPlus, CalendarDays, Trash2, Loader2, Eye, FileText, MessageCircle, XCircle, Star, Lightbulb, Plus, Share2 } from 'lucide-react';
 import { format, addMonths, subMonths, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, getDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import SetlistPreview from '../../components/SetlistPreview';
+import MonthRolesSummaryModal from '../../components/MonthRolesSummaryModal';
 import { exportMonthToPDF } from '../../lib/exportUtils';
 
 export default function Dashboard() {
@@ -40,6 +41,7 @@ export default function Dashboard() {
   const [viewSuggestionsDate, setViewSuggestionsDate] = useState<ServiceDate | null>(null);
   const [newSuggestion, setNewSuggestion] = useState({ title: '', artist: '', category: '' });
   const [isSavingSuggestion, setIsSavingSuggestion] = useState(false);
+  const [showSummaryModal, setShowSummaryModal] = useState(false);
 
   useEffect(() => {
     const userStr = localStorage.getItem('currentUser');
@@ -319,6 +321,13 @@ export default function Dashboard() {
             Avisar Equipo
           </button>
           <button
+            onClick={() => setShowSummaryModal(true)}
+            className="flex-1 flex justify-center items-center py-2 px-4 bg-gradient-to-r from-emerald-600 to-teal-650 hover:from-emerald-500 hover:to-teal-550 text-white rounded-lg font-bold text-sm transition-all shadow-[0_0_15px_rgba(16,185,129,0.25)] hover:scale-[1.02] active:scale-[0.98]"
+          >
+            <Share2 className="w-5 h-5 mr-2" />
+            Resumen del Mes
+          </button>
+          <button
             onClick={() => setShowManualAdd(!showManualAdd)}
             className="flex-1 flex justify-center items-center py-2 px-4 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 rounded-lg font-bold text-sm transition-colors"
           >
@@ -503,6 +512,14 @@ export default function Dashboard() {
         serviceDate={previewDate}
         allUsers={allUsers}
         onClose={() => setPreviewDate(null)}
+      />
+
+      <MonthRolesSummaryModal
+        isOpen={showSummaryModal}
+        onClose={() => setShowSummaryModal(false)}
+        currentMonth={currentMonth}
+        serviceDates={serviceDates}
+        allUsers={allUsers}
       />
 
       {/* Quick Suggestion Modal */}
