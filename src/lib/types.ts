@@ -41,6 +41,9 @@ export interface LibrarySong {
   
   // Cuántas veces se ha cantado (popularidad)
   playCount: number;
+
+  // Indica si tiene tablatura/chord chart asociado
+  hasChordChart?: boolean;
 }
 
 export type SongsStatus = 'DRAFT' | 'REVIEW' | 'APPROVED';
@@ -75,10 +78,13 @@ export interface SongSuggestion {
   createdAt: string;       // ISO timestamp
 }
 
+export type ChordNotation = 'letters' | 'solfege';
+
 export interface SystemSettings {
   defaultServiceDays: number[]; // 0 for Sunday, 1 for Monday, etc. Use JS Date day indices.
   sections?: SectionDef[];
   defaultMonth?: string; // e.g., '2026-04'
+  chordNotation?: ChordNotation; // 'letters' = A,B,C | 'solfege' = Do,Re,Mi
 }
 
 export interface DatabaseSchema {
@@ -88,4 +94,55 @@ export interface DatabaseSchema {
   settings: SystemSettings;
   library: LibrarySong[];
   suggestions: SongSuggestion[];
+  chordCharts: ChordChart[];
+}
+
+// --- Chord Chart / Tablatura Types ---
+
+export type ChordChartSectionType = 
+  | 'intro' | 'verse' | 'pre_chorus' | 'chorus' | 'bridge'
+  | 'interlude' | 'outro' | 'tag' | 'instrumental' | 'custom';
+
+// Posición de un acorde sobre la letra
+export interface ChordPosition {
+  chord: string;    // "Am7", "G/B", "Csus4"
+  position: number; // Índice del carácter en lyrics donde va el acorde
+}
+
+// Una línea con letra y acordes posicionados
+export interface ChordLine {
+  id: string;
+  lyrics: string;          // "Digno eres Señor de gloria"
+  chords: ChordPosition[]; // Acordes posicionados sobre la letra
+}
+
+// Representa una sección individual del chord chart
+export interface ChordChartSection {
+  id: string;
+  type: ChordChartSectionType;
+  label: string;       // Ej: "Verso 1", "Coro", "Puente Instrumental"
+  lines: ChordLine[];
+}
+
+// Elemento de la estructura de ejecución
+export interface StructureItem {
+  sectionId: string;   // Referencia al id de ChordChartSection
+  repeats: number;     // Cantidad de veces (default: 1)
+}
+
+// El documento completo del chord chart
+export interface ChordChart {
+  id: string;
+  librarySongId: string;   // Vinculado a la canción en Library
+  originalKey: string;     // Tonalidad original: "G", "Am", etc.
+  tempo?: number;          // BPM opcional
+  timeSignature?: string;  // "4/4", "3/4", "6/8"
+  capo?: number;           // Posición del capo (0-11)
+  sections: ChordChartSection[];
+  structure: StructureItem[];  // Orden de ejecución
+  notes?: string;          // Notas generales del director
+  chordProSource?: string; // Fuente ChordPro original (si se importó)
+  createdBy: string;       // userId del creador
+  updatedAt: string;       // ISO timestamp
+  createdAt: string;       // ISO timestamp
 }

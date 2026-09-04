@@ -3,7 +3,7 @@ import {
   collection, doc, getDocs, getDoc, setDoc, updateDoc, deleteDoc,
   query, where, writeBatch, addDoc, onSnapshot
 } from 'firebase/firestore';
-import { User, ServiceDate, Availability, Song, LibrarySong, SystemSettings, SectionDef, SongSuggestion } from './types';
+import { User, ServiceDate, Availability, Song, LibrarySong, SystemSettings, SectionDef, SongSuggestion, ChordChart } from './types';
 
 const DEFAULT_SECTIONS: SectionDef[] = [
   { id: 'ALABANZAS', name: 'Alabanzas', active: true },
@@ -18,6 +18,7 @@ const SERVICE_DATES_COL = 'serviceDates';
 const AVAILABILITIES_COL = 'availabilities';
 const LIBRARY_COL = 'library';
 const SUGGESTIONS_COL = 'songSuggestions';
+const CHORD_CHARTS_COL = 'chordCharts';
 const SETTINGS_DOC = 'settings/global';
 
 // --- SESSION VALIDATION ---
@@ -408,5 +409,62 @@ export async function seedInitialData(): Promise<void> {
   const settingsSnap = await getDoc(settingsDocRef);
   if (!settingsSnap.exists()) {
     await setDoc(settingsDocRef, { defaultServiceDays: [0, 2], sections: DEFAULT_SECTIONS });
+  }
+}
+
+// --- CHORD CHARTS ---
+
+export async function getChordChart(librarySongId: string): Promise<ChordChart | null> {
+  const q = query(collection(firestore, CHORD_CHARTS_COL), where('librarySongId', '==', librarySongId));
+  const snap = await getDocs(q);
+  if (snap.empty) return null;
+  const docSnap = snap.docs[0];
+  return { id: docSnap.id, ...docSnap.data() } as ChordChart;
+}
+
+export async function saveChordChart(chart: ChordChart): Promise<string> {
+  await validateSessionUserActive();
+  const now = new Date().toISOString();
+  
+  // Clean undefined properties for Firestore compatibility
+  const cleanChart = JSON.parse(JSON.stringify(chart));
+  
+  if (chart.id) {
+    // Update existing
+    const { id, ...data } = cleanChart;
+    await setDoc(doc(firestore, CHORD_CHARTS_COL, id), { ...data, updatedAt: now });
+    // Mark library song as having a chart
+    await markLibrarySongHasChart(chart.librarySongId, true);
+    return id;
+  } else {
+    // Create new
+    const { id: _unusedId, ...data } = cleanChart;
+    const docRef = await addDoc(collection(firestore, CHORD_CHARTS_COL), {
+      ...data,
+      createdAt: now,
+      updatedAt: now
+    });
+    // Mark library song as having a chart
+    await markLibrarySongHasChart(chart.librarySongId, true);
+    return docRef.id;
+  }
+}
+
+export async function deleteChordChart(chartId: string, librarySongId: string): Promise<void> {
+  await validateSessionUserActive();
+  await deleteDoc(doc(firestore, CHORD_CHARTS_COL, chartId));
+  // Remove flag from library song
+  await markLibrarySongHasChart(librarySongId, false);
+}
+
+async function markLibrarySongHasChart(librarySongId: string, hasChart: boolean): Promise<void> {
+  try {
+    const docRef = doc(firestore, LIBRARY_COL, librarySongId);
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+      await updateDoc(docRef, { hasChordChart: hasChart });
+    }
+  } catch (e) {
+    console.error('Error updating hasChordChart flag:', e);
   }
 }
