@@ -135,6 +135,16 @@ Bienvenido a la documentación oficial y bitácora de desarrollo de **WorshipStu
 
 ---
 
+### Fase 12: Sistema de Tablaturas y Cifrados (Chord Charts) [COMPLETADO ✅]
+**Objetivo:** Permitir la creación, edición, importación y transposición de cifrados/tablaturas musicales de alta calidad dentro del ecosistema de la biblioteca y cultos.
+
+- **Editor de Cifrados de Cero**: Interfaz completa (`ChordChartEditor.tsx`) para estructurar canciones por secciones (*Intro, Verso, Pre-Coro, Coro, Puente, Outro, Instrumental, Tag*), agregar acordes directamente sobre la letra y definir la secuencia de ejecución de la canción con badges y repeticiones.
+- **Motor de Transposición y Notación**: Sistema cromático propio (`chordUtils.ts`) que transpone acordes simples e invertidos manteniendo sostenidos/bemoles correctos según la tonalidad destino. Soporta alternar entre notación anglosajona (A, B, C) y cifrado latino/solfeo (Do, Re, Mi).
+- **Importador de PDFs y ChordPro**: Módulo para extraer automáticamente letras y acordes desde documentos PDF (formato Secuencias.com / ChartBuilder) mediante `pdfjs-dist` o importación directa de texto ChordPro.
+- **Visor Interactivo (`ChordChartViewer.tsx`)**: Permite a directores, cantores y músicos abrir el cifrado en tiempo real, transponer la tonalidad durante el ensayo o culto, fijar la nueva tonalidad para un servicio específico y copiar la tablatura en texto plano para compartir.
+
+---
+
 ## 🚀 Próximos pasos
 1. **Notificaciones Push**: Implementar alertas cuando un bosquejo pase de "Borrador" a "Aprobado".
 2. **Roles de Músicos**: Profundizar en la gestión de instrumentos específicos para que el sistema sugiera músicos basados en si falta bajo, batería o piano.

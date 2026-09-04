@@ -2,9 +2,11 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import * as store from '../../../lib/firebaseStore';
-import { LibrarySong, User } from '../../../lib/types';
-import { Search, Music, Music2, Download, User2, ExternalLink, Edit2, Trash2, Plus, Save, LayoutGrid, TableProperties, Loader2 } from 'lucide-react';
+import { LibrarySong, User, ChordChart, ChordNotation, SystemSettings } from '../../../lib/types';
+import { Search, Music, Music2, Download, User2, ExternalLink, Edit2, Trash2, Plus, Save, LayoutGrid, TableProperties, Loader2, FileMusic } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import ChordChartEditor from '../../../components/ChordChartEditor';
+import ChordChartViewer from '../../../components/ChordChartViewer';
 
 export default function LibraryPage() {
   const [library, setLibrary] = useState<LibrarySong[]>([]);
@@ -21,6 +23,12 @@ export default function LibraryPage() {
   
   const [inlineEditingCell, setInlineEditingCell] = useState<{songId: string, userId: string} | null>(null);
   const [inlineToneInput, setInlineToneInput] = useState('');
+
+  // Chord Chart states
+  const [chartEditorSong, setChartEditorSong] = useState<LibrarySong | null>(null);
+  const [chartViewerSong, setChartViewerSong] = useState<LibrarySong | null>(null);
+  const [activeChart, setActiveChart] = useState<ChordChart | null>(null);
+  const [chordNotation, setChordNotation] = useState<ChordNotation>('letters');
 
   useEffect(() => {
     const userStr = localStorage.getItem('currentUser');
@@ -41,6 +49,10 @@ export default function LibraryPage() {
       const libs = await store.getLibrary();
       libs.sort((a, b) => a.title.localeCompare(b.title));
       setLibrary(libs);
+
+      // Load chord notation preference
+      const settings = await store.getSettings();
+      if (settings.chordNotation) setChordNotation(settings.chordNotation);
     } catch (err) {
       console.error('Error loading library:', err);
     }
@@ -105,6 +117,27 @@ export default function LibraryPage() {
   const handleSearchWeb = (title: string, artist: string) => {
      const query = encodeURIComponent(`Acordes ${title} ${artist !== 'Desconocido' ? artist : ''}`);
      window.open(`https://www.google.com/search?q=${query}`, '_blank');
+  };
+
+  // Chord Chart handlers
+  const handleOpenChartEditor = async (song: LibrarySong) => {
+    const existing = await store.getChordChart(song.id);
+    setActiveChart(existing);
+    setChartEditorSong(song);
+  };
+
+  const handleOpenChartViewer = async (song: LibrarySong) => {
+    const existing = await store.getChordChart(song.id);
+    if (existing) {
+      setActiveChart(existing);
+      setChartViewerSong(song);
+    }
+  };
+
+  const handleChartSaved = async () => {
+    await refreshLibrary();
+    setChartEditorSong(null);
+    setActiveChart(null);
   };
 
   const handleExportLib = () => {
@@ -232,6 +265,7 @@ export default function LibraryPage() {
                     
                     {currentUser?.role === 'DIRECTOR' && (
                        <div className="absolute top-3 right-3 hidden group-hover:flex space-x-1 z-10 bg-neutral-950/80 p-1 rounded-lg backdrop-blur">
+                          <button onClick={() => handleOpenChartEditor(song)} className="p-1.5 text-neutral-400 hover:text-pink-400 hover:bg-neutral-800 rounded transition-colors" title={song.hasChordChart ? 'Editar Tablatura' : 'Crear Tablatura'}><FileMusic className="w-4 h-4"/></button>
                           <button onClick={() => handleStartEdit(song)} className="p-1.5 text-neutral-400 hover:text-white hover:bg-neutral-800 rounded transition-colors"><Edit2 className="w-4 h-4"/></button>
                           <button onClick={() => handleDelete(song.id)} className="p-1.5 text-neutral-400 hover:text-red-400 hover:bg-neutral-800 rounded transition-colors"><Trash2 className="w-4 h-4"/></button>
                        </div>
@@ -239,7 +273,18 @@ export default function LibraryPage() {
 
                     <div>
                        <div className="flex justify-between items-start mb-2 pr-12">
-                         <h4 className="text-lg font-bold text-white leading-tight">{song.title}</h4>
+                         <h4 className="text-lg font-bold text-white leading-tight flex items-center gap-2">
+                         {song.title}
+                         {song.hasChordChart && (
+                           <button
+                             onClick={(e) => { e.stopPropagation(); handleOpenChartViewer(song); }}
+                             className="shrink-0 p-1 bg-pink-500/10 border border-pink-500/20 rounded-md hover:bg-pink-500/20 transition-colors" 
+                             title="Ver Tablatura"
+                           >
+                             <FileMusic className="w-3.5 h-3.5 text-pink-400" />
+                           </button>
+                         )}
+                       </h4>
                          <span className="bg-neutral-800 text-neutral-400 text-xs px-2 py-0.5 rounded-full font-medium ml-2 shrink-0">{song.playCount} {song.playCount === 1 ? 'vez' : 'veces'}</span>
                        </div>
                        
@@ -346,6 +391,29 @@ export default function LibraryPage() {
             </div>
          )}
       </div>
+
+      {/* Chord Chart Editor Modal */}
+      {chartEditorSong && (
+        <ChordChartEditor
+          librarySong={chartEditorSong}
+          existingChart={activeChart}
+          currentUser={currentUser}
+          chordNotation={chordNotation}
+          onClose={() => { setChartEditorSong(null); setActiveChart(null); }}
+          onSaved={handleChartSaved}
+        />
+      )}
+
+      {/* Chord Chart Viewer Modal */}
+      {chartViewerSong && activeChart && (
+        <ChordChartViewer
+          chart={activeChart}
+          songTitle={chartViewerSong.title}
+          songArtist={chartViewerSong.artist}
+          chordNotation={chordNotation}
+          onClose={() => { setChartViewerSong(null); setActiveChart(null); }}
+        />
+      )}
     </div>
   );
 }

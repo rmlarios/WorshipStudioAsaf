@@ -3,10 +3,11 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import * as store from '../../../lib/firebaseStore';
-import { User, ServiceDate, Availability, Song, LibrarySong, SystemSettings, SectionDef, SongSuggestion } from '../../../lib/types';
-import { ArrowLeft, Lock, Unlock, Play, Save, Plus, Trash2, Send, CheckCircle, XCircle, Edit2, AlertTriangle, Loader2, Eye, Smartphone, X, Lightbulb, List, FileText } from 'lucide-react';
+import { User, ServiceDate, Availability, Song, LibrarySong, SystemSettings, SectionDef, SongSuggestion, ChordChart, ChordNotation } from '../../../lib/types';
+import { ArrowLeft, Lock, Unlock, Play, Save, Plus, Trash2, Send, CheckCircle, XCircle, Edit2, AlertTriangle, Loader2, Eye, Smartphone, X, Lightbulb, List, FileText, FileMusic } from 'lucide-react';
 import Link from 'next/link';
 import SetlistPreview from '../../../components/SetlistPreview';
+import ChordChartViewer from '../../../components/ChordChartViewer';
 
 // --- HELPERS FOR QUICK TEXT-BASED SETLIST EDITING ---
 const normalizeText = (text: string): string => {
@@ -183,6 +184,10 @@ export default function DateDetails() {
   const [editMode, setEditMode] = useState<'advanced' | 'quick'>('advanced');
   const [quickText, setQuickText] = useState('');
   const [isSavingQuick, setIsSavingQuick] = useState(false);
+
+  // Chord Chart Viewer
+  const [viewingChartSong, setViewingChartSong] = useState<{ song: Song; chart: ChordChart } | null>(null);
+  const [chordNotation, setChordNotation] = useState<ChordNotation>('letters');
 
   useEffect(() => {
     const userStr = localStorage.getItem('currentUser');
@@ -570,6 +575,27 @@ if (!currentUser || !dateInfo) return <div className="flex items-center justify-
       }
     });
     return uses;
+  };
+
+  // Open chord chart viewer for a song in the setlist
+  const handleOpenSongChart = async (song: Song) => {
+    const libMatch = librarySongs.find(ls => ls.title.trim().toLowerCase() === song.title.trim().toLowerCase());
+    if (!libMatch || !libMatch.hasChordChart) return;
+    const chart = await store.getChordChart(libMatch.id);
+    if (chart) {
+      setViewingChartSong({ song, chart });
+    }
+  };
+
+  const handleFixChartKey = async (key: string) => {
+    if (!viewingChartSong || !dateInfo) return;
+    const newSongs = dateInfo.songs.map(s =>
+      s.id === viewingChartSong.song.id ? { ...s, tone: key } : s
+    );
+    const updated = { ...dateInfo, songs: newSongs };
+    await store.updateServiceDate(updated);
+    setDateInfo(updated);
+    setViewingChartSong(null);
   };
 
   return (
@@ -963,6 +989,17 @@ if (!currentUser || !dateInfo) return <div className="flex items-center justify-
                                   
                                   {/* Actions */}
                                   <div className="flex items-center sm:border-l border-t sm:border-t-0 p-3 sm:p-4 border-neutral-800 justify-end bg-neutral-950/50 sm:bg-transparent">
+                                     {(() => {
+                                       const libMatch = librarySongs.find(ls => ls.title.trim().toLowerCase() === song.title.trim().toLowerCase());
+                                       if (libMatch?.hasChordChart) {
+                                         return (
+                                           <button onClick={() => handleOpenSongChart(song)} className="w-10 h-10 flex items-center justify-center bg-pink-500/10 text-pink-400 rounded-lg hover:bg-pink-500/20 transition-colors shrink-0" title="Ver Tablatura">
+                                             <FileMusic className="w-5 h-5" />
+                                           </button>
+                                         );
+                                       }
+                                       return null;
+                                     })()}
                                     {song.youtubeUrl && (
                                       <a href={song.youtubeUrl} target="_blank" rel="noreferrer" className="w-10 h-10 flex items-center justify-center bg-red-500/10 text-red-500 rounded-lg hover:bg-red-500/20 transition-colors shrink-0">
                                          <Play className="w-5 h-5 ml-0.5" /> 
@@ -1203,6 +1240,19 @@ if (!currentUser || !dateInfo) return <div className="flex items-center justify-
           allUsers={allUsers}
           onClose={() => setShowPreviewModal(false)}
           showEditLink={false}
+        />
+      )}
+
+      {/* Chord Chart Viewer Modal */}
+      {viewingChartSong && (
+        <ChordChartViewer
+          chart={viewingChartSong.chart}
+          songTitle={viewingChartSong.song.title}
+          songArtist={viewingChartSong.song.artist}
+          initialKey={viewingChartSong.song.tone !== 'Desconocido' ? viewingChartSong.song.tone : undefined}
+          chordNotation={chordNotation}
+          onClose={() => setViewingChartSong(null)}
+          onFixKey={canEditSongs ? handleFixChartKey : undefined}
         />
       )}
     </div>
